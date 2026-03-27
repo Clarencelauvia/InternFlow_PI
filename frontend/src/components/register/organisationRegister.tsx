@@ -1,5 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import Swal from "sweetalert2";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import { 
+  FaBuilding, FaMapMarkerAlt, FaEnvelope, FaPhone, FaLock, 
+  FaUser, FaBriefcase, FaCheckCircle, FaArrowRight, FaArrowLeft,
+  FaBars, FaTimes, FaGlobe, FaMailBulk, FaUsers, FaProjectDiagram, 
+} from "react-icons/fa";
 
 export default function OrganisationRegistration() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -10,6 +18,7 @@ export default function OrganisationRegistration() {
     postalCode: "",
     officialNumber: "",
     password: "",
+    confirmPassword: "",
     departments: [] as string[],
     projects: [] as string[],
     adminName: "",
@@ -18,8 +27,30 @@ export default function OrganisationRegistration() {
     adminRole: "",
   });
 
-  const departmentOptions = ["R&D", "Marketing", "Finance", "Operations"];
-  const projectOptions = ["AI Project", "Web App", "Mobile App", "Data Analysis"];
+  // toggle password visibility states
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const departmentOptions = [
+    "Recherche & Développement",
+    "Marketing & Communication",
+    "Finance & Comptabilité",
+    "Ressources Humaines",
+    "Opérations & Logistique",
+    "Informatique & IT",
+    "Ventes & Business Development"
+  ];
+  
+  const projectOptions = [
+    "Intelligence Artificielle",
+    "Développement Web",
+    "Applications Mobiles",
+    "Analyse de Données",
+    "Cybersécurité",
+    "Cloud Computing",
+    "Marketing Digital"
+  ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -33,91 +64,431 @@ export default function OrganisationRegistration() {
     });
   };
 
-  const handleNext = () => setStep((prev) => (prev < 3 ? (prev + 1) as 1 | 2 | 3 : prev));
+  const handleNext = () => {
+    // Validation simple pour chaque étape
+    if (step === 1) {
+      if (!formData.organisationName || !formData.domain || !formData.location || 
+          !formData.postalCode || !formData.officialNumber || !formData.password) {
+        Swal.fire({
+          icon: "error",
+          title: "Erreur de validation",
+          text: "Veuillez remplir tous les champs obligatoires"
+        });
+      }
+      if (formData.password !== formData.confirmPassword) {
+        Swal.fire({
+          icon: "error",
+          title: "Erreur de validation",
+          text: "Les mots de passe ne correspondent pas"
+        });
+        return;
+      }
+    }
+    if (step === 2 && formData.departments.length === 0) {
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de validation",
+        text: "Veuillez sélectionner au moins un département"
+      });
+      return;
+    }
+    if (step === 3) {
+      if (!formData.adminName || !formData.adminEmail || !formData.adminContact || !formData.adminRole) {
+        Swal.fire({
+          icon: "error",
+          title: "Erreur de validation",
+          text: "Veuillez remplir tous les champs"
+        });
+        return;
+      }
+    }
+    setStep((prev) => (prev < 3 ? (prev + 1) as 1 | 2 | 3 : prev));
+  };
+  
   const handlePrev = () => setStep((prev) => (prev > 1 ? (prev - 1) as 1 | 2 | 3 : prev));
-  const handleSubmit = (e: React.FormEvent) => {
+  
+  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log(formData);
+    Swal.fire({
+      icon: "success",
+      title: "Inscription réussie",
+      text: "Votre compte a été créé avec succès ! Un email de confirmation vous a été envoyé."
+    });
   };
 
   return (
-    <div className="min-h-screen bg-[#ECFDF5] font-sans">
+    <div className="min-h-screen bg-linear-to-br from-[#F0FDF4] to-white font-sans">
+      
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <span className="font-bold text-xl text-gray-900">
-            Inter<span className="text-[#16A34A]">flow</span>
-          </span>
-          <div className="hidden md:flex gap-6">
-            <Link to="/" className="text-gray-700 hover:text-[#16A34A]">Accueil</Link>
-            <Link to="#" className="text-gray-700 hover:text-[#16A34A]">À Propos</Link>
-            <Link to="#" className="text-gray-700 hover:text-[#16A34A]">Entreprises</Link>
-            <Link to="/register" className="text-[#16A34A] font-semibold">Inscription</Link>
-            <Link to="#" className="text-gray-700 hover:text-[#16A34A]">Contact</Link>
+      <nav className="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-sm shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <Link to="/" className="font-bold text-2xl text-[#16A34A] hover:scale-105 transition-transform">
+              Intern<span className="text-[#059669]">flow</span>
+            </Link>
+            
+            <div className="hidden md:flex gap-8 items-center">
+              <Link to="/" className="hover:text-[#059669] transition font-medium">Accueil</Link>
+              <Link to="/internships" className="hover:text-[#059669] transition font-medium">Stages</Link>
+              <Link to="/companies" className="hover:text-[#059669] transition font-medium">Entreprises</Link>
+              <Link to="/login" className="hover:text-[#059669] transition font-medium">Connexion</Link>
+              <Link to="/register" className="px-5 py-2 rounded-full bg-[#16A34A] text-white font-semibold hover:bg-[#059669] transition shadow-md hover:shadow-lg">
+                Inscription
+              </Link>
+              <Link to="/post-internship" className="px-5 py-2 rounded-full border-2 border-[#16A34A] text-[#16A34A] font-semibold hover:bg-[#16A34A] hover:text-white transition">
+                Publier un stage
+              </Link>
+            </div>
           </div>
         </div>
       </nav>
 
-      <main className="pt-28 flex justify-center items-start min-h-screen px-4">
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md space-y-6">
-          <h1 className="text-2xl font-bold text-gray-900 text-center">Inscription Organisation</h1>
-
-          {/* Progress bar */}
-          <div className="flex justify-between mb-6">
-            <div className={`w-1/3 h-2 rounded ${step >= 1 ? 'bg-[#16A34A]' : 'bg-gray-200'}`}></div>
-            <div className={`w-1/3 h-2 rounded ${step >= 2 ? 'bg-[#16A34A]' : 'bg-gray-200'}`}></div>
-            <div className={`w-1/3 h-2 rounded ${step >= 3 ? 'bg-[#16A34A]' : 'bg-gray-200'}`}></div>
+      <main className="pt-28 pb-20 px-4 flex justify-center items-center min-h-screen">
+        <div className="w-full max-w-2xl">
+          
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="inline-block px-4 py-2 bg-[#16A34A]/10 rounded-full mb-4">
+              <span className="text-[#16A34A] font-semibold text-sm">Inscription entreprise</span>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-[#16A34A] mb-2">
+              Rejoignez notre réseau d'entreprises
+            </h1>
+            <p className="text-gray-600">
+              Créez votre compte et accédez aux meilleurs talents étudiants
+            </p>
           </div>
 
-          {/* Step 1: Organisation Info */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="font-semibold text-gray-700">Informations de l'organisation</h2>
-              <input type="text" name="organisationName" placeholder="Nom de l'organisation" value={formData.organisationName} onChange={handleChange} className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-[#16A34A]" />
-              <input type="text" name="domain" placeholder="Domaine officiel" value={formData.domain} onChange={handleChange} className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-[#16A34A]" />
-              <input type="text" name="location" placeholder="Localisation" value={formData.location} onChange={handleChange} className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-[#16A34A]" />
-              <input type="text" name="postalCode" placeholder="Code postal" value={formData.postalCode} onChange={handleChange} className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-[#16A34A]" />
-              <input type="tel" name="officialNumber" placeholder="Numéro officiel" value={formData.officialNumber} onChange={handleChange} className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-[#16A34A]" />
-              <input type="password" name="password" placeholder="Mot de passe" value={formData.password} onChange={handleChange} className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-[#16A34A]" />
-            </div>
-          )}
-
-          {/* Step 2: Departments & Projects */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <h2 className="font-semibold text-gray-700">Départements et Projets</h2>
-              <div className="flex flex-wrap gap-2">
-                {departmentOptions.map(d => (
-                  <span key={d} onClick={() => toggleSelect(d, "departments")} className={`px-3 py-1 rounded-full border cursor-pointer ${formData.departments.includes(d) ? 'bg-[#16A34A] text-white border-[#16A34A]' : 'bg-gray-100 border-gray-300'}`}>{d}</span>
-                ))}
+          {/* Form Card */}
+          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl overflow-hidden">
+            
+            {/* Progress Bar */}
+            <div className="bg-gray-50 px-8 pt-8 pb-4 border-b border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-600">Étape {step} sur 3</span>
+                <span className="text-sm font-medium text-[#16A34A]">
+                  {step === 1 && "Informations organisation"}
+                  {step === 2 && "Départements & Projets"}
+                  {step === 3 && "Administrateur"}
+                </span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {projectOptions.map(p => (
-                  <span key={p} onClick={() => toggleSelect(p, "projects")} className={`px-3 py-1 rounded-full border cursor-pointer ${formData.projects.includes(p) ? 'bg-[#16A34A] text-white border-[#16A34A]' : 'bg-gray-100 border-gray-300'}`}>{p}</span>
-                ))}
+              <div className="flex gap-2">
+                <div className={`h-2 rounded-full transition-all duration-300 ${step >= 1 ? 'bg-[#16A34A]' : 'bg-gray-200'}`} style={{ width: '33.33%' }}></div>
+                <div className={`h-2 rounded-full transition-all duration-300 ${step >= 2 ? 'bg-[#16A34A]' : 'bg-gray-200'}`} style={{ width: '33.33%' }}></div>
+                <div className={`h-2 rounded-full transition-all duration-300 ${step >= 3 ? 'bg-[#16A34A]' : 'bg-gray-200'}`} style={{ width: '33.33%' }}></div>
               </div>
             </div>
-          )}
 
-          {/* Step 3: Admin Info */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <h2 className="font-semibold text-gray-700">Informations de l'administrateur</h2>
-              <input type="text" name="adminName" placeholder="Nom complet" value={formData.adminName} onChange={handleChange} className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-[#16A34A]" />
-              <input type="email" name="adminEmail" placeholder="Email" value={formData.adminEmail} onChange={handleChange} className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-[#16A34A]" />
-              <input type="tel" name="adminContact" placeholder="Contact" value={formData.adminContact} onChange={handleChange} className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-[#16A34A]" />
-              <input type="text" name="adminRole" placeholder="Rôle" value={formData.adminRole} onChange={handleChange} className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-[#16A34A]" />
+            <div className="p-8">
+              
+              {/* Step 1: Organisation Info */}
+              {step === 1 && (
+                <div className="space-y-5">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaBuilding className="inline mr-2 text-[#16A34A]" size={14} />
+                        Nom de l'organisation *
+                      </label>
+                      <input 
+                        type="text" 
+                        name="organisationName" 
+                        placeholder="Ex: NextGen Tech" 
+                        value={formData.organisationName} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaGlobe className="inline mr-2 text-[#16A34A]" size={14} />
+                        Domaine officiel *
+                      </label>
+                      <input 
+                        type="text" 
+                        name="domain" 
+                        placeholder="Ex: techcorp.com" 
+                        value={formData.domain} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaMapMarkerAlt className="inline mr-2 text-[#16A34A]" size={14} />
+                        Localisation *
+                      </label>
+                      <input 
+                        type="text" 
+                        name="location" 
+                        placeholder="Ex: NewBell, Douala" 
+                        value={formData.location} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Code postal *
+                      </label>
+                      <input 
+                        type="text" 
+                        name="postalCode" 
+                        placeholder="Ex: 75001" 
+                        value={formData.postalCode} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaPhone className="inline mr-2 text-[#16A34A]" size={14} />
+                        Numéro officiel *
+                      </label>
+                      <input 
+                        type="tel" 
+                        name="officialNumber" 
+                        placeholder="Ex: +222 6 12 34 56 78" 
+                        value={formData.officialNumber} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaLock className="inline mr-2 text-[#16A34A]" size={14} />
+                        Mot de passe *
+                      </label>
+                <div className="relative">
+               <input 
+               type={showPassword ? "text" : "password"} 
+               name="password" 
+               value={formData.password} 
+               onChange={handleChange}
+               className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+             />
+
+            <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+           className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+            >
+           <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+          </button>
+         </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaLock className="inline mr-2 text-[#16A34A]" size={14} />
+                        Confirmer le mot de passe *
+                      </label>
+                    <div className="relative">
+                        <input 
+                        type={showConfirmPassword ? "text" : "password"}
+                        name="confirmPassword" 
+                        placeholder="Confirmez votre mot de passe" 
+                        value={formData.confirmPassword} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                      />
+                        <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+           className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+            >
+           <FontAwesomeIcon icon={showConfirmPassword ? faEyeSlash : faEye} />
+          </button>
+                    </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Departments & Projects */}
+              {step === 2 && (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      <FaUsers className="inline mr-2 text-[#16A34A]" size={14} />
+                      Départements concernés * (sélectionnez au moins un)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {departmentOptions.map(d => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => toggleSelect(d, "departments")}
+                          className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                            formData.departments.includes(d) 
+                              ? 'bg-[#16A34A] text-white shadow-md' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {formData.departments.length} département(s) sélectionné(s)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      <FaProjectDiagram className="inline mr-2 text-[#16A34A]" size={14} />
+                      Projets & Technologies
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {projectOptions.map(p => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => toggleSelect(p, "projects")}
+                          className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                            formData.projects.includes(p) 
+                              ? 'bg-[#16A34A] text-white shadow-md' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {formData.projects.length} projet(s) sélectionné(s)
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Admin Info */}
+              {step === 3 && (
+                <div className="space-y-5">
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
+                    <p className="text-sm text-blue-800">
+                      <FaUser className="inline mr-2" />
+                      Informations de l'administrateur principal du compte
+                    </p>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaUser className="inline mr-2 text-[#16A34A]" size={14} />
+                        Nom complet *
+                      </label>
+                      <input 
+                        type="text" 
+                        name="adminName" 
+                        placeholder="Ex: Siwe Edward" 
+                        value={formData.adminName} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaEnvelope className="inline mr-2 text-[#16A34A]" size={14} />
+                        Email professionnel *
+                      </label>
+                      <input 
+                        type="email" 
+                        name="adminEmail" 
+                        placeholder="Ex: siwe@nextgentech.com" 
+                        value={formData.adminEmail} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaPhone className="inline mr-2 text-[#16A34A]" size={14} />
+                        Téléphone *
+                      </label>
+                      <input 
+                        type="tel" 
+                        name="adminContact" 
+                        placeholder="Ex: +33 6 12 34 56 78" 
+                        value={formData.adminContact} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                      />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaBriefcase className="inline mr-2 text-[#16A34A]" size={14} />
+                        Fonction / Rôle *
+                      </label>
+                      <input 
+                        type="text" 
+                        name="adminRole" 
+                        placeholder="Ex: Responsable RH, Directeur Technique, etc." 
+                        value={formData.adminRole} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
+                {step > 1 ? (
+                  <button
+                    type="button"
+                    onClick={handlePrev}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-all duration-200"
+                  >
+                    <FaArrowLeft size={16} />
+                    Précédent
+                  </button>
+                ) : (
+                  <div></div>
+                )}
+                
+                {step < 3 ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-200"
+                  >
+                    Étape suivante
+                    <FaArrowRight size={16} />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-200"
+                  >
+                    <FaCheckCircle size={16} />
+                    Terminer l'inscription
+                  </button>
+                )}
+              </div>
+
+              {/* Login Link */}
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-500">
+                  Vous avez déjà un compte ?{" "}
+                  <Link to="/login" className="text-[#16A34A] font-semibold hover:underline">
+                    Se connecter
+                  </Link>
+                </p>
+              </div>
             </div>
-          )}
-
-          {/* Navigation */}
-          <div className="flex justify-between">
-            {step > 1 && <button type="button" onClick={handlePrev} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Précédent</button>}
-            {step < 3 ? <button type="button" onClick={handleNext} className="px-4 py-2 bg-[#16A34A] text-white rounded hover:bg-[#059669]">Suivant</button> : <button type="submit" className="px-4 py-2 bg-[#16A34A] text-white rounded hover:bg-[#059669]">Terminer</button>}
-          </div>
-
-          <p className="text-center text-sm text-gray-500">Déjà un compte ? <Link to="#" className="text-[#16A34A]">Se connecter</Link></p>
-        </form>
+          </form>
+        </div>
       </main>
     </div>
   );
