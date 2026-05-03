@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2" ;
 import { 
   FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowRight, 
   FaBars, FaTimes, FaBuilding, FaShieldAlt, FaCheckCircle,
   FaFacebook, FaGoogle, FaApple, FaQuestionCircle, FaIdCard,
   FaBriefcase, FaGlobe, FaUserTie, FaChartLine, FaUsers
 } from "react-icons/fa";
-
 export default function OrganisationLogin() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -70,28 +70,91 @@ export default function OrganisationLogin() {
     return valid;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!validateForm()) return;
+  
+  setIsLoading(true);
+  
+  try {
+    const response = await fetch('http://localhost:8000/api/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: formData.email,
+        password: formData.password,
+        role: 'organization'
+      })
+    });
     
-    if (!validateForm()) return;
+    const data = await response.json();
     
-    setIsLoading(true);
+    if (response.ok) {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      Swal.fire({
+        icon: "success",
+        title: "Connexion réussie",
+        text: "Bienvenue sur votre espace recruteur !",
+        timer: 1500,
+        showConfirmButton: false
+      });
+      
+      // Check if profile needs completion
+      const orgProfile = data.organization_profile;
+      const needsCompletion = !orgProfile?.sector || !orgProfile?.company_size;
+      
+      if (needsCompletion) {
+        navigate("/admindashboard/organisationDashboard");
+      } else {
+        navigate("/dashboard/organisation");
+      }
+    } else {
+      // Handle HTTP error
+      const errorMessage = data.errors 
+        ? Object.values(data.errors).flat().join(', ')
+        : data.error || "Email ou mot de passe incorrect";
+      
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de connexion",
+        text: errorMessage
+      });
+    }
+  } catch (error) {
+    // Handle network error
+    console.error("Login error:", error);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      // Redirect to organisation dashboard after successful login
-      navigate("/organisation/dashboard");
-    }, 1500);
-  };
-
+    let errorMessage = "Impossible de contacter le serveur. Veuillez vérifier votre connexion.";
+    
+    if (error instanceof Error) {
+      if (error.message === "Failed to fetch") {
+        errorMessage = "Impossible de contacter le serveur. Vérifiez que le serveur est démarré.";
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
+    Swal.fire({
+      icon: "error",
+      title: "Erreur réseau",
+      text: errorMessage
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
   const handleSocialLogin = (provider: string) => {
     console.log(`Login with ${provider}`);
     // Implement social login logic here
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F0FDF4] to-white font-sans">
+    <div className="min-h-screen bg-linear-to-br from-[#F0FDF4] to-white font-sans">
       
       {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-sm shadow-lg">
@@ -261,7 +324,7 @@ export default function OrganisationLogin() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-linear-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

@@ -1,17 +1,31 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import Swal from "sweetalert2";
+import countries from "../register/countries.json";
 import { 
   FaUser, FaEnvelope, FaPhone, FaLock, FaUniversity, 
   FaGraduationCap, FaBook, FaCalendarAlt, FaIdCard, 
   FaUsers, FaCheckCircle, FaArrowRight, FaArrowLeft,
-  FaBars, FaTimes, FaUserGraduate, FaChalkboardTeacher
+  FaUserGraduate, FaCamera, FaSpinner,
+  FaChevronDown
 } from "react-icons/fa";
 
 export default function StudentRegistration() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [profilePicture, setProfilePicture] = useState<File | null>(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const [selectedCountryCode, setSelectedCountryCode] = useState(countries[0].dial_code);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [countrySearch, setCountrySearch] = useState("");
+
+  
+  
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -26,10 +40,6 @@ export default function StudentRegistration() {
     guardianName: "",
     guardianContact: "",
   });
-
-  // toggle password visibility states
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -68,10 +78,115 @@ export default function StudentRegistration() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleNext = () => {
-    // Validation simple pour chaque étape
+  const filteredCountries = countries.filter(country =>
+  country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+  country.dial_code.includes(countrySearch)
+);
+  const getFullPhoneNumber = () => {
+    return `${selectedCountryCode} ${phoneNumber.replace(/\s/g, "")}`;
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Remove non-digits and spaces
+  let value = e.target.value;
+  
+  // If user pastes a number with country code, extract it
+  for (const country of countries) {
+    if (value.startsWith(country.dial_code)) {
+      setSelectedCountryCode(country.dial_code);
+      value = value.substring(country.dial_code.length);
+      break;
+    }
+  }
+  
+  // Remove all non-digits
+  const cleaned = value.replace(/\D/g, '');
+  
+  // Format the number (example: XX XX XX XX XX)
+  const match = cleaned.match(/^(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})$/);
+  if (match) {
+    setPhoneNumber(`${match[1]} ${match[2]} ${match[3]} ${match[4]} ${match[5]}`);
+  } else if (cleaned.length <= 10) {
+    // Format as XX XX XX XX for numbers with less digits
+    const parts = cleaned.match(/.{1,3}/g);
+    setPhoneNumber(parts ? parts.join(' ') : cleaned);
+  } else {
+    setPhoneNumber(cleaned);
+  }
+};
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        Swal.fire({
+          icon: "error",
+          title: "Format invalide",
+          text: "Veuillez sélectionner une image (JPG, PNG, GIF)"
+        });
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        Swal.fire({
+          icon: "error",
+          title: "Fichier trop volumineux",
+          text: "La taille maximale est de 5MB"
+        });
+        return;
+      }
+      
+      setProfilePicture(file);
+      const previewUrl = URL.createObjectURL(file);
+      setProfilePicturePreview(previewUrl);
+    }
+  };
+
+  const uploadProfilePicture = async (studentId: number): Promise<string | null> => {
+    if (!profilePicture) return null;
+    
+    const formData = new FormData();
+    formData.append('profile_picture', profilePicture);
+    formData.append('student_id', studentId.toString());
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/upload/profile-picture', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const data = await response.json();
+      console.log("Upload response:", data);
+      if (response.ok) {
+        return data.path;
+      }
+      return null;
+    } catch (error) {
+      console.error("Upload error:", error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      setShowCountryDropdown(false);
+    }
+  };
+  
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, []);
+
+  const handleNext = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    console.log("handleNext called for step:", step);
+    
     if (step === 1) {
-      if (!formData.fullName || !formData.email || !formData.contact || !formData.password) {
+      if (!formData.fullName || !formData.email || !formData.password) {
         Swal.fire({
           icon: "error",
           title: "Erreur de validation",
@@ -95,7 +210,21 @@ export default function StudentRegistration() {
         });
         return;
       }
+      const cleanPhone =  phoneNumber.replace(/\s/g, '');
+      if (!cleanPhone || cleanPhone.length<6){
+        Swal.fire({
+          icon: "error",
+          title: "Erreur de validation",
+          text: "Veuillez entrer un numero de telephone valide (au moins 6 chiffres)"
+        }
+        );
+        return;
+      }
+      console.log("Moving from step 1 to 2");
+      setStep(2);
+      return;
     }
+    
     if (step === 2) {
       if (!formData.university || !formData.department || !formData.course || !formData.year || !formData.studentID) {
         Swal.fire({
@@ -105,31 +234,149 @@ export default function StudentRegistration() {
         });
         return;
       }
+      console.log("Moving from step 2 to 3");
+      setStep(3);
+      return;
     }
-    if (step === 3) {
-      if (!formData.guardianName || !formData.guardianContact) {
+  };
+  
+  const handlePrev = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    if (step > 1) {
+      setStep((prev) => (prev - 1) as 1 | 2 | 3);
+    }
+  };
+  
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    console.log("handleSubmit called - Final submission"); 
+    
+    if (!formData.fullName || !formData.email || !formData.password) {
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de validation",
+        text: "Veuillez remplir tous les champs personnels"
+      });
+      return;
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de validation",
+        text: "Les mots de passe ne correspondent pas"
+      });
+      return;
+    }
+    
+    if (!formData.email.includes("@")) {
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de validation",
+        text: "Veuillez entrer un email valide"
+      });
+      return;
+    }
+ 
+   const cleanPhone = phoneNumber.replace(/\s/g, '');
+     if (!cleanPhone || cleanPhone.length < 6) {
+  Swal.fire({
+    icon: "error",
+    title: "Erreur de validation",
+    text: "Veuillez entrer un numéro de téléphone valide"
+  });
+  return;
+}
+    
+    if (!formData.university || !formData.department || !formData.course || !formData.year || !formData.studentID) {
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de validation",
+        text: "Veuillez remplir tous les champs académiques"
+      });
+      return;
+    }
+    
+    if (!formData.guardianName || !formData.guardianContact) {
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de validation",
+        text: "Veuillez remplir les informations du tuteur"
+      });
+      return;
+    }
+    const fullPhoneNumber = getFullPhoneNumber();
+
+    
+    setUploading(true);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/register/student', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          email: formData.email,
+          contact: fullPhoneNumber,
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+          university: formData.university,
+          department: formData.department,
+          course: formData.course,
+          year: formData.year,
+          studentID: formData.studentID,
+          guardianName: formData.guardianName,
+          guardianContact: formData.guardianContact,
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Upload profile picture if selected
+        if (profilePicture && data.user?.id) {
+          const picturePath = await uploadProfilePicture(data.user.id);
+          if (picturePath) {
+            console.log("Profile picture uploaded successfully");
+          }
+        }
+        
+        Swal.fire({
+          icon: "success",
+          title: "Inscription réussie",
+          text: "Votre compte a été créé avec succès ! Vous allez être redirigé vers la page de connexion.",
+          timer: 3000,
+          showLoaderOnConfirm: true,
+          showConfirmButton: true,
+          willClose: () => {
+            window.location.href = "/login/studentlogin";
+          }
+        });
+      } else {
+        const errorMessage = data.errors 
+          ? Object.values(data.errors).flat().join(', ')
+          : data.error || "Une erreur est survenue lors de l'inscription";
+        
         Swal.fire({
           icon: "error",
-          title: "Erreur de validation",
-          text: "Veuillez remplir tous les champs obligatoires"
+          title: "Erreur d'inscription",
+          text: errorMessage
         });
-        return;
       }
+    } catch (error) {
+      console.error("Network error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erreur réseau",
+        text: "Impossible de contacter le serveur. Veuillez vérifier votre connexion et réessayer."
+      });
+    } finally {
+      setUploading(false);
     }
-    setStep((prev) => (prev < 3 ? (prev + 1) as 1 | 2 | 3 : prev));
   };
   
-  const handlePrev = () => setStep((prev) => (prev > 1 ? (prev - 1) as 1 | 2 | 3 : prev));
-  
-  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    console.log(formData);
-    Swal.fire({
-      icon: "success",
-      title: "Inscription réussie",
-      text: "Votre compte a été créé avec succès ! Un email de confirmation vous a été envoyé."
-    });
-  };
 
   return (
     <div className="min-h-screen bg-linear-to-br from-[#F0FDF4] to-white font-sans">
@@ -206,6 +453,39 @@ export default function StudentRegistration() {
                     </p>
                   </div>
                   
+                  {/* Profile Picture Upload */}
+                  <div className="flex justify-center mb-4">
+                    <div className="relative">
+                      <div 
+                        className="w-32 h-32 rounded-full bg-gray-100 border-4 border-[#16A34A] flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-80 transition"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        {profilePicturePreview ? (
+                          <img src={profilePicturePreview} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          <FaUserGraduate size={48} className="text-gray-400" />
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute bottom-0 right-0 bg-[#16A34A] text-white p-2 rounded-full shadow-lg hover:bg-[#059669] transition"
+                      >
+                        <FaCamera size={14} />
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfilePictureChange}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-center text-xs text-gray-500 -mt-2 mb-4">
+                    Photo de profil (optionnel, max 5MB)
+                  </p>
+                  
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -237,43 +517,105 @@ export default function StudentRegistration() {
                       />
                     </div>
                     
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <FaPhone className="inline mr-2 text-[#16A34A]" size={14} />
-                        Téléphone *
-                      </label>
-                      <input 
-                        type="tel" 
-                        name="contact" 
-                        placeholder="Ex: +237 6 12 34 56 78" 
-                        value={formData.contact} 
-                        onChange={handleChange} 
-                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
-                      />
-                    </div>
-                    
+<div>
+  <label className="block text-sm font-semibold text-gray-700 mb-2">
+    <FaPhone className="inline mr-2 text-[#16A34A]" size={14} />
+    Téléphone *
+  </label>
+  <div className="relative" ref={dropdownRef}>
+    {/* Country Code Button */}
+    <button
+      type="button"
+      onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+      className="absolute left-0 top-0 h-full flex items-center gap-1 px-3 border-r border-gray-300 bg-gray-50 rounded-l-xl hover:bg-gray-100 transition z-10"
+    >
+      <span className="font-medium text-sm">{selectedCountryCode}</span>
+      <FaChevronDown size={10} className={`transition-transform ${showCountryDropdown ? 'rotate-180' : ''}`} />
+    </button>
+    
+    {/* Phone Input */}
+    <input 
+      type="tel" 
+      name="contact"
+      placeholder="673 321 819" 
+      value={phoneNumber} 
+      onChange={handlePhoneChange}
+      className="w-full border border-gray-300 rounded-xl pl-28 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+    />
+    
+    {/* Dropdown Menu with Search */}
+    {showCountryDropdown && (
+      <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto">
+        {/* Search Input */}
+        <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+          <input
+            type="text"
+            placeholder="Rechercher un pays..."
+            value={countrySearch}
+            onChange={(e) => {
+              setCountrySearch(e.target.value);
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#16A34A] text-sm"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+        
+        {/* Countries List - Filtered */}
+        <div className="divide-y divide-gray-100">
+          {filteredCountries.length > 0 ? (
+            filteredCountries.map((country) => (
+              <button
+                key={country.code}
+                type="button"
+                onClick={() => {
+                  setSelectedCountryCode(country.dial_code);
+                  setShowCountryDropdown(false);
+                  setCountrySearch(""); // Reset search after selection
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition text-left"
+              >
+                <span className="font-medium text-sm bg-gray-100 px-2 py-0.5 rounded">{country.dial_code}</span>
+                <span className="text-sm text-gray-700 flex-1">{country.name}</span>
+                <span className="text-xs text-gray-400">{country.code}</span>
+                {selectedCountryCode === country.dial_code && (
+                  <FaCheckCircle className="text-[#16A34A]" size={14} />
+                )}
+              </button>
+            ))
+          ) : (
+            <div className="px-4 py-3 text-sm text-gray-500 text-center">
+              Aucun pays trouvé
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+  <p className="text-xs text-gray-500 mt-1">
+    L'indicatif pays sera automatiquement ajouté devant votre numéro
+  </p>
+</div>         
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <FaLock className="inline mr-2 text-[#16A34A]" size={14} />
                         Mot de passe *
                       </label>
-                           <div className="relative">
-               <input 
-               type={showPassword ? "text" : "password"} 
-               name="password" 
-               value={formData.password} 
-               onChange={handleChange}
-               className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
-             />
-
-            <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-           className="absolute inset-y-0 right-3 flex items-center text-gray-500"
-            >
-           <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
-          </button>
-         </div>
+                      <div className="relative">
+                        <input 
+                          type={showPassword ? "text" : "password"} 
+                          name="password" 
+                          value={formData.password} 
+                          onChange={handleChange}
+                          className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+                        >
+                          <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+                        </button>
+                      </div>
                     </div>
                     
                     <div>
@@ -281,23 +623,23 @@ export default function StudentRegistration() {
                         <FaLock className="inline mr-2 text-[#16A34A]" size={14} />
                         Confirmer le mot de passe *
                       </label>
-                    <div className="relative">
+                      <div className="relative">
                         <input 
-                        type={showConfirmPassword ? "text" : "password"}
-                        name="confirmPassword" 
-                        placeholder="Confirmez votre mot de passe" 
-                        value={formData.confirmPassword} 
-                        onChange={handleChange} 
-                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
-                      />
+                          type={showConfirmPassword ? "text" : "password"}
+                          name="confirmPassword" 
+                          placeholder="Confirmez votre mot de passe" 
+                          value={formData.confirmPassword} 
+                          onChange={handleChange} 
+                          className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                        />
                         <button
-            type="button"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-           className="absolute inset-y-0 right-3 flex items-center text-gray-500"
-            >
-           <FontAwesomeIcon icon={showConfirmPassword ? faEyeSlash : faEye} />
-          </button>
-                    </div>
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+                        >
+                          <FontAwesomeIcon icon={showConfirmPassword ? faEyeSlash : faEye} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -329,53 +671,68 @@ export default function StudentRegistration() {
                       />
                     </div>
                     
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <FaGraduationCap className="inline mr-2 text-[#16A34A]" size={14} />
-                        Département / Filière *
-                      </label>
-                      <select 
-                        name="department" 
-                        value={formData.department} 
-                        onChange={handleChange}
-                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition bg-white"
-                      >
-                        <option value="">Sélectionnez votre département</option>
-                        {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                    </div>
+                   <div>
+             <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <FaGraduationCap className="inline mr-2 text-[#16A34A]" size={14} />
+             Département / Filière *
+             </label>
+             <input 
+            type="text" 
+            name="department" 
+            list="departments-list"
+            placeholder="Ex: Informatique & Technologies" 
+            value={formData.department} 
+            onChange={handleChange} 
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+           />
+                  <datalist id="departments-list">
+                     {departments.map(dept => (
+                   <option key={dept} value={dept} />
+                 ))}
+            </datalist>
+              </div>
                     
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <FaBook className="inline mr-2 text-[#16A34A]" size={14} />
-                        Cours / Spécialité *
-                      </label>
-                      <select 
-                        name="course" 
-                        value={formData.course} 
-                        onChange={handleChange}
-                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition bg-white"
-                      >
-                        <option value="">Sélectionnez votre cours</option>
-                        {courses.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
+                   <div>
+  <label className="block text-sm font-semibold text-gray-700 mb-2">
+    <FaBook className="inline mr-2 text-[#16A34A]" size={14} />
+    Cours / Spécialité *
+  </label>
+  <input 
+    type="text" 
+    name="course" 
+    list="courses-list"
+    placeholder="Ex: Développement Web Full Stack" 
+    value={formData.course} 
+    onChange={handleChange} 
+    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+  />
+  <datalist id="courses-list">
+    {courses.map(course => (
+      <option key={course} value={course} />
+    ))}
+  </datalist>
+</div>
                     
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <FaCalendarAlt className="inline mr-2 text-[#16A34A]" size={14} />
-                        Année d'étude *
-                      </label>
-                      <select 
-                        name="year" 
-                        value={formData.year} 
-                        onChange={handleChange}
-                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition bg-white"
-                      >
-                        <option value="">Sélectionnez votre année</option>
-                        {years.map(y => <option key={y} value={y}>{y}</option>)}
-                      </select>
-                    </div>
+                 <div>
+  <label className="block text-sm font-semibold text-gray-700 mb-2">
+    <FaCalendarAlt className="inline mr-2 text-[#16A34A]" size={14} />
+    Année d'étude *
+  </label>
+  <input 
+    type="text" 
+    name="year" 
+    list="years-list"
+    placeholder="Ex: 3ème année (Licence 3)" 
+    value={formData.year} 
+    onChange={handleChange} 
+    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+  />
+  <datalist id="years-list">
+    {years.map(year => (
+      <option key={year} value={year} />
+    ))}
+  </datalist>
+</div>
                     
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -441,7 +798,7 @@ export default function StudentRegistration() {
 
               {/* Navigation Buttons */}
               <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
-                {step > 1 ? (
+                {step > 1 && (
                   <button
                     type="button"
                     onClick={handlePrev}
@@ -450,15 +807,13 @@ export default function StudentRegistration() {
                     <FaArrowLeft size={16} />
                     Précédent
                   </button>
-                ) : (
-                  <div></div>
                 )}
                 
                 {step < 3 ? (
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-200"
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-200 ml-auto"
                   >
                     Étape suivante
                     <FaArrowRight size={16} />
@@ -466,10 +821,11 @@ export default function StudentRegistration() {
                 ) : (
                   <button
                     type="submit"
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-200"
+                    disabled={uploading}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-200 ml-auto disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <FaCheckCircle size={16} />
-                    Terminer l'inscription
+                    {uploading ? <FaSpinner className="animate-spin" size={16} /> : <FaCheckCircle size={16} />}
+                    {uploading ? "Inscription en cours..." : "Terminer l'inscription"}
                   </button>
                 )}
               </div>

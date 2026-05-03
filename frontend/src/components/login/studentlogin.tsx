@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import { 
   FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowRight, 
   FaBars, FaTimes, FaGraduationCap, FaShieldAlt, FaCheckCircle,
@@ -26,7 +27,6 @@ export default function StudentLogin() {
       ...formData,
       [e.target.name]: e.target.value
     });
-    // Clear error when user starts typing
     if (errors[e.target.name as keyof typeof errors]) {
       setErrors({
         ...errors,
@@ -50,39 +50,70 @@ export default function StudentLogin() {
     if (!formData.password) {
       newErrors.password = "Le mot de passe est requis";
       valid = false;
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Le mot de passe doit contenir au moins 6 caractères";
-      valid = false;
     }
 
     setErrors(newErrors);
     return valid;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!validateForm()) return;
     
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch('http://localhost:8000/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          role: 'student'
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Store token and user data
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        Swal.fire({
+          icon: "success",
+          title: "Connexion réussie",
+          text: "Bienvenue sur votre tableau de bord !",
+          timer: 1500,
+          showConfirmButton: false
+        });
+        
+        navigate("/dashboard/studDashboard");
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Erreur de connexion",
+          text: data.error || "Email ou mot de passe incorrect"
+        });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erreur réseau",
+        text: "Impossible de contacter le serveur"
+      });
+    } finally {
       setIsLoading(false);
-      // Redirect to student dashboard after successful login
-      navigate("/student/dashboard");
-    }, 1500);
-  };
-
-  const handleSocialLogin = (provider: string) => {
-    console.log(`Login with ${provider}`);
-    // Implement social login logic here
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F0FDF4] to-white font-sans">
-      
-      {/* Navbar */}
+    <div className="min-h-screen bg-linear-to-br from-[#F0FDF4] to-white font-sans">
+      {/* Navbar (same as before) */}
       <nav className="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-sm shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
@@ -110,21 +141,6 @@ export default function StudentLogin() {
               {isMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
             </button>
           </div>
-
-          {isMenuOpen && (
-            <div className="md:hidden mt-4 pb-4 space-y-3">
-              <Link to="/" className="block py-2 hover:text-[#059669] transition font-medium">Accueil</Link>
-              <Link to="/internships" className="block py-2 hover:text-[#059669] transition font-medium">Stages</Link>
-              <Link to="/companies" className="block py-2 hover:text-[#059669] transition font-medium">Entreprises</Link>
-              <Link to="/login" className="block py-2 text-[#16A34A] font-medium">Connexion</Link>
-              <Link to="/register" className="block py-2 text-center rounded-full bg-[#16A34A] text-white font-semibold hover:bg-[#059669] transition">
-                Inscription
-              </Link>
-              <Link to="/post-internship" className="block py-2 text-center rounded-full border-2 border-[#16A34A] text-[#16A34A] font-semibold hover:bg-[#16A34A] hover:text-white transition">
-                Publier un stage
-              </Link>
-            </div>
-          )}
         </div>
       </nav>
 
@@ -163,7 +179,7 @@ export default function StudentLogin() {
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    placeholder="ex: marie.dupont@universite.fr"
+                    placeholder="ex: marie.mbarga@universite.fr"
                     className={`w-full border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition`}
                   />
                   {errors.email && (
@@ -183,7 +199,7 @@ export default function StudentLogin() {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      placeholder="••••••••"
+                      placeholder="mot de passe"
                       className={`w-full border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition`}
                     />
                     <button
@@ -219,7 +235,7 @@ export default function StudentLogin() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-linear-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -231,41 +247,6 @@ export default function StudentLogin() {
                 </button>
               </form>
 
-              {/* Divider */}
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-gray-500">Ou continuer avec</span>
-                </div>
-              </div>
-
-              {/* Social Login Buttons */}
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => handleSocialLogin('google')}
-                  className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
-                >
-                  <FaGoogle className="text-red-500" size={18} />
-                  <span className="text-sm font-medium text-gray-700 hidden sm:inline">Google</span>
-                </button>
-                <button
-                  onClick={() => handleSocialLogin('facebook')}
-                  className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
-                >
-                  <FaFacebook className="text-blue-600" size={18} />
-                  <span className="text-sm font-medium text-gray-700 hidden sm:inline">Facebook</span>
-                </button>
-                <button
-                  onClick={() => handleSocialLogin('apple')}
-                  className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
-                >
-                  <FaApple className="text-gray-800" size={18} />
-                  <span className="text-sm font-medium text-gray-700 hidden sm:inline">Apple</span>
-                </button>
-              </div>
-
               {/* Register Link */}
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-500">
@@ -275,26 +256,7 @@ export default function StudentLogin() {
                   </Link>
                 </p>
               </div>
-
-              {/* Security Info */}
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
-                  <FaShieldAlt size={12} />
-                  <span>Connexion sécurisée SSL</span>
-                  <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                  <FaCheckCircle size={12} />
-                  <span>Protection des données</span>
-                </div>
-              </div>
             </div>
-          </div>
-
-          {/* Help Section */}
-          <div className="mt-6 text-center">
-            <Link to="/help" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-[#16A34A] transition">
-              <FaQuestionCircle size={14} />
-              <span>Besoin d'aide ?</span>
-            </Link>
           </div>
         </div>
       </main>

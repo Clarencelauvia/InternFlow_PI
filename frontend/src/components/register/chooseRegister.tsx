@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { 
-  FaGraduationCap, FaBuilding, FaUniversity, FaArrowRight, 
+  FaGraduationCap, FaBuilding, FaArrowRight, 
   FaBars, FaTimes, FaCheckCircle, FaUsers, FaChartLine 
 } from "react-icons/fa";
 
 export default function ChoixInscription() {
-  const [selected, setSelected] = useState<"student" | "org" | "university" | null>(null);
+  const [selected, setSelected] = useState<"student" | "org" | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const options = [
@@ -39,21 +39,6 @@ export default function ChoixInscription() {
         "Analyser les performances de recrutement"
       ],
       stats: "200+ entreprises partenaires"
-    },
-    {
-      id: "university",
-      title: "Je représente une université",
-      desc: "Connectez vos étudiants aux meilleures opportunités et suivez leurs candidatures.",
-      icon: <FaUniversity size={32} />,
-      link: "/register/university",
-      color: "from-green-500 to-green-600",
-      features: [
-        "Publier des programmes pour étudiants",
-        "Suivre les performances des étudiants",
-        "Accéder aux rapports et statistiques",
-        "Gérer les partenariats avec les entreprises"
-      ],
-      stats: "50+ universités partenaires"
     },
   ];
 
@@ -149,7 +134,7 @@ export default function ChoixInscription() {
           </div>
 
           {/* Options Grid */}
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {options.map((opt, index) => (
               <div
                 key={opt.id}

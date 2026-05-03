@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import perle21 from "../images/perle21.jpeg";
+import perle16 from "../images/perle16.jpeg";
+import perle23 from "../images/perle23.jpeg"
 import { 
   FaGraduationCap, FaBriefcase, FaCertificate, FaChartLine, FaStar, 
   FaSearch, FaUser, FaBuilding, FaCheckCircle, FaArrowRight, 
@@ -31,9 +34,9 @@ const partnerCompanies = [
 ];
 
 const featuredInternships = [
-  { title: "Développeur Full Stack React/Node", company: "Tech Corp", location: "Paris, France", duration: "6 mois", type: "Hybride", salary: "800-1200€/mois" },
-  { title: "Assistant Marketing Digital", company: "Creative Studio", location: "Lyon, France", duration: "4 mois", type: "Remote", salary: "600-900€/mois" },
-  { title: "Data Analyst - Business Intelligence", company: "Smart Analytics", location: "Bordeaux, France", duration: "6 mois", type: "Présentiel", salary: "700-1000€/mois" },
+  { title: "Développeur Full Stack React/Node", company: "Tech Corp", location: "Yaoundé, Cameroun", duration: "6 mois", type: "Hybride", salary: "180-260k/mois" },
+  { title: "Assistant Marketing Digital", company: "Creative Studio", location: "Douala, Cameroun", duration: "4 mois", type: "Remote", salary: "80-150K/mois" },
+  { title: "Data Analyst - Business Intelligence", company: "Smart Analytics", location: "Limbe, Cameroun", duration: "6 mois", type: "Présentiel", salary: "150-250K/mois" },
 ];
 
 const steps = [
@@ -150,7 +153,7 @@ export default function HomePage() {
               <div className="relative">
                 <div className="absolute -top-10 -left-10 w-72 h-72 bg-[#16A34A]/5 rounded-full blur-3xl"></div>
                 <img 
-                  src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                  src={perle21} 
                   alt="Students collaborating" 
                   className="rounded-2xl shadow-2xl relative z-10"
                 />
@@ -376,9 +379,9 @@ export default function HomePage() {
             <div>
               <h4 className="font-bold text-lg mb-4">Contact</h4>
               <ul className="space-y-2 text-gray-400">
-                <li className="flex items-center gap-2"><FaEnvelope /> contact@interflow.com</li>
-                <li className="flex items-center gap-2"><FaPhone /> +33 1 23 45 67 89</li>
-                <li className="flex items-center gap-2"><FaMapMarkerAlt /> Paris, France</li>
+                <li className="flex items-center gap-2"><FaEnvelope /> internflow@gmail.com</li>
+                <li className="flex items-center gap-2"><FaPhone /> +237 653 321 819</li>
+                <li className="flex items-center gap-2"><FaMapMarkerAlt /> Yaoundé, Cameroun</li>
               </ul>
             </div>
           </div>

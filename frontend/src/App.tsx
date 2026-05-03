@@ -4,12 +4,13 @@ import HomePage from './components/pages/homepage'
 import RegisterPage from './components/register/chooseRegister'
 import StudentRegistration from './components/register/studentRegister'
 import OrganisationRegistration from './components/register/organisationRegister'
-import UniversityRegistration from './components/register/universityRegister'
 import ChoixConnexion from './components/login/chooselogin'
 import StudentLogin from './components/login/studentlogin'
-import UniversityLogin from './components/login/universitylogin'
 import OrganisationLogin from './components/login/organisationlogin'
-
+import StudDashboard from './components/dashboard/studDashboard'
+import CompleteProfile from './components/dashboard/CompleteProfile'
+import CompleteOrgProfile from './components/adminDashboard/completOrgProfile'
+import OrganizationDashboard from './components/adminDashboard/organisationDashboard'
 function App() {
  
 
@@ -21,11 +22,13 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/register/student" element={<StudentRegistration />} />
         <Route path="/register/organisation" element={<OrganisationRegistration />} />
-        <Route path="/register/university" element={<UniversityRegistration />} />
         <Route path="/login" element={<ChoixConnexion />} />
-        <Route path="/login/student" element={<StudentLogin />} />
-        <Route path="/login/university" element={<UniversityLogin />} />
+        <Route path="/login/studentLogin" element={<StudentLogin />} />
         <Route path="/login/organisation" element={<OrganisationLogin />} />
+        <Route path="/dashboard/studDashboard" element={<StudDashboard />} />
+        <Route path="/dashboard/completeProfile" element={<CompleteProfile />} />
+        <Route path="/admindashboard/completeOrgProfile" element={<CompleteOrgProfile />} />
+        <Route path="/admindashboard/organisationDashboard" element={<OrganizationDashboard />} />
       </Routes>
     </BrowserRouter>
     

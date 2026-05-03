@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { 
-  FaGraduationCap, FaBuilding, FaUniversity, FaArrowRight, 
+  FaGraduationCap, FaBuilding, FaArrowRight, 
   FaBars, FaTimes, FaLock, FaShieldAlt,
   FaUserCheck, FaCheckCircle
 } from "react-icons/fa";
 
 export default function ChoixConnexion() {
-  const [selected, setSelected] = useState<"student" | "org" | "university" | null>(null);
+  const [selected, setSelected] = useState<"student" | "org" | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const options = [
@@ -16,7 +16,7 @@ export default function ChoixConnexion() {
       title: "Étudiant",
       desc: "Accédez à votre espace personnel pour gérer vos candidatures et suivre vos stages.",
       icon: <FaGraduationCap size={32} />,
-      link: "/login/student",
+      link: "/login/studentLogin",
       color: "from-blue-500 to-blue-600",
       features: [
         "Consulter vos candidatures",
@@ -41,25 +41,10 @@ export default function ChoixConnexion() {
       ],
       stats: "200+ entreprises partenaires"
     },
-    {
-      id: "university",
-      title: "Université",
-      desc: "Connectez vos étudiants aux entreprises et suivez leurs parcours de stage.",
-      icon: <FaUniversity size={32} />,
-      link: "/login/university",
-      color: "from-green-500 to-green-600",
-      features: [
-        "Suivre les étudiants stagiaires",
-        "Accéder aux rapports",
-        "Gérer les conventions",
-        "Consulter les statistiques"
-      ],
-      stats: "50+ universités partenaires"
-    },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F0FDF4] to-white font-sans">
+    <div className="min-h-screen bg-linear-to-br from-[#F0FDF4] to-white font-sans">
       
       {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-sm shadow-lg">
@@ -92,7 +77,7 @@ export default function ChoixConnexion() {
 
       {/* Main */}
       <main className="pt-28 pb-20 px-4 flex justify-center items-center">
-        <div className="w-full max-w-6xl">
+        <div className="w-full max-w-4xl">
 
           {/* Header */}
           <div className="text-center mb-12">
@@ -109,7 +94,7 @@ export default function ChoixConnexion() {
           </div>
 
           {/* Cards */}
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 gap-8">
             {options.map((opt, index) => (
               <div
                 key={opt.id}
@@ -127,7 +112,7 @@ export default function ChoixConnexion() {
                   <div className="p-8 flex flex-col h-full">
 
                     {/* Icon */}
-                    <div className={`w-16 h-16 rounded-xl bg-gradient-to-r ${opt.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                    <div className={`w-16 h-16 rounded-xl bg-linear-to-r ${opt.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
                       <div className="text-white">{opt.icon}</div>
                     </div>
 
@@ -162,7 +147,7 @@ export default function ChoixConnexion() {
                       <Link to={opt.link}>
                         <button className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all duration-300
                           ${selected === opt.id 
-                            ? `bg-gradient-to-r ${opt.color} text-white shadow-lg hover:shadow-xl transform hover:scale-105` 
+                            ? `bg-linear-to-r ${opt.color} text-white shadow-lg hover:shadow-xl transform hover:scale-105` 
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                           }`}
                         >
