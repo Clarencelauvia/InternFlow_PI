@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class organizationProfile extends Model
+class OrganizationProfile extends Model
 {
     use HasFactory;
     
@@ -15,6 +15,7 @@ class organizationProfile extends Model
         'user_id',
         'organisation_name',
         'domain',
+        'official_email',
         'location',
         'postal_code',
         'official_number',
@@ -29,6 +30,12 @@ class organizationProfile extends Model
         'recruitment_email',
         'contact_person_name',
         'contact_person_role',
+        'company_code',
+    ];
+
+    protected $casts = [
+        'social_links' => 'array',
+        'founded_year' => 'integer',
     ];
 
     public function user()
@@ -48,6 +55,6 @@ class organizationProfile extends Model
 
     public function internships()
     {
-        return $this->hasMany(Internship::class);
+        return $this->hasMany(Internship::class, 'organisation_id');
     }
 }

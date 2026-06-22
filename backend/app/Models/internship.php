@@ -9,11 +9,16 @@ class Internship extends Model
 {
     use HasFactory;
 
+    protected $table = 'internships';
+
     protected $fillable = [
         'organisation_id',
         'title',
         'description',
         'location',
+        'quartier',
+        'latitude',
+        'longitude',
         'duration',
         'start_date',
         'end_date',
@@ -32,16 +37,18 @@ class Internship extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'expires_at' => 'datetime',
-        'salary' => 'decimal:2',
+        'salary' => 'decimal:0',
+        'longitude' => 'float',
+        'latitude' => 'float',
     ];
 
     public function organization()
     {
-        return $this->belongsTo(OrganizationProfile::class, 'organization_id');
+        return $this->belongsTo(OrganizationProfile::class, 'organisation_id');
     }
 
     public function applications()
     {
-        return $this->hasMany(Application::class);
+        return $this->hasMany(Application::class, 'internship_id');
     }
 }

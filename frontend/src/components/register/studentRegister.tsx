@@ -315,6 +315,7 @@ export default function StudentRegistration() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({
           fullName: formData.fullName,

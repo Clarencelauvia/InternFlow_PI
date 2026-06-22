@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import perle21 from "../images/perle21.jpeg";
 import perle16 from "../images/perle16.jpeg";
-import perle23 from "../images/perle23.jpeg"
+import perle23 from "../images/passe.jpg"
 import { 
   FaGraduationCap, FaBriefcase, FaCertificate, FaChartLine, FaStar, 
   FaSearch, FaUser, FaBuilding, FaCheckCircle, FaArrowRight, 
@@ -153,7 +153,7 @@ export default function HomePage() {
               <div className="relative">
                 <div className="absolute -top-10 -left-10 w-72 h-72 bg-[#16A34A]/5 rounded-full blur-3xl"></div>
                 <img 
-                  src={perle21} 
+                  src={perle23} 
                   alt="Students collaborating" 
                   className="rounded-2xl shadow-2xl relative z-10"
                 />

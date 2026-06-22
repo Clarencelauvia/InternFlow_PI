@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { 
   FaGraduationCap, FaBuilding, FaArrowRight, 
-  FaBars, FaTimes, FaCheckCircle, FaUsers, FaChartLine 
+  FaBars, FaTimes, FaCheckCircle, FaUsers, FaChartLine,
+  FaUniversity
 } from "react-icons/fa";
 
 export default function ChoixInscription() {
-  const [selected, setSelected] = useState<"student" | "org" | null>(null);
+  const [selected, setSelected] = useState<"student" | "org" | "university" | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const options = [
@@ -39,6 +40,21 @@ export default function ChoixInscription() {
         "Analyser les performances de recrutement"
       ],
       stats: "200+ entreprises partenaires"
+    },
+    {
+      id: "university",
+      title: "Je suis une université",
+      desc: "Gérez vos conventions de stage et suivez vos étudiants.",
+      icon: <FaUniversity size={32} />,
+      link: "/register/university",
+      color: "from-indigo-500 to-indigo-600",
+      features: [
+        "Gérer les conventions de stage",
+        "Suivre les étudiants en stage",
+        "Accréditer des entreprises",
+        "Analyser les placements"
+      ],
+      stats: "50+ universités partenaires"
     },
   ];
 
@@ -109,7 +125,7 @@ export default function ChoixInscription() {
           </div>
 
           {/* Statistics Banner */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
             <div className="bg-white rounded-2xl p-6 text-center shadow-md hover:shadow-lg transition border border-gray-100">
               <div className="w-12 h-12 bg-[#16A34A]/10 rounded-full flex items-center justify-center mx-auto mb-3">
                 <FaUsers className="text-[#16A34A]" size={24} />
@@ -126,6 +142,13 @@ export default function ChoixInscription() {
             </div>
             <div className="bg-white rounded-2xl p-6 text-center shadow-md hover:shadow-lg transition border border-gray-100">
               <div className="w-12 h-12 bg-[#16A34A]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                <FaUniversity className="text-[#16A34A]" size={24} />
+              </div>
+              <div className="text-2xl font-bold text-[#16A34A]">50+</div>
+              <div className="text-gray-600 text-sm">Universités partenaires</div>
+            </div>
+            <div className="bg-white rounded-2xl p-6 text-center shadow-md hover:shadow-lg transition border border-gray-100">
+              <div className="w-12 h-12 bg-[#16A34A]/10 rounded-full flex items-center justify-center mx-auto mb-3">
                 <FaChartLine className="text-[#16A34A]" size={24} />
               </div>
               <div className="text-2xl font-bold text-[#16A34A]">95%</div>
@@ -134,7 +157,7 @@ export default function ChoixInscription() {
           </div>
 
           {/* Options Grid */}
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {options.map((opt, index) => (
               <div
                 key={opt.id}

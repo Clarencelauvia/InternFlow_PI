@@ -109,9 +109,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       const needsCompletion = !orgProfile?.sector || !orgProfile?.company_size;
       
       if (needsCompletion) {
-        navigate("/admindashboard/organisationDashboard");
+        navigate("/admindashboard/completeOrgProfile");
       } else {
-        navigate("/dashboard/organisation");
+        navigate("/admindashboard/organisationDashboard");
       }
     } else {
       // Handle HTTP error

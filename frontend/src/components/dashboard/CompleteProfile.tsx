@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -15,9 +15,11 @@ import {
 export default function CompleteProfile() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [step, setStep] = useState<1 | 2>(1);
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [profilePicturePreview, setProfilePicturePreview] = useState<string>("");
+  const [user, setUser] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -54,6 +56,57 @@ export default function CompleteProfile() {
     { value: "9", label: "9 mois" },
     { value: "12", label: "12 mois" }
   ];
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login/studentLogin");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:8000/api/profile", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json"
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data);
+        const profile = data.student_profile;
+        
+        if (profile) {
+          setFormData({
+            location: profile.location || "",
+            bio: profile.bio || "",
+            preferredWorkType: profile.preferred_work_type || "",
+            internshipType: profile.internship_type || "",
+            preferredDurationMin: profile.preferred_duration_min?.toString() || "",
+            preferredDurationMax: profile.preferred_duration_max?.toString() || "",
+            skills: profile.skills || "",
+            languages: profile.languages || "",
+            linkedinUrl: profile.linkedin_url || "",
+            githubUrl: profile.github_url || "",
+            portfolioUrl: profile.portfolio_url || "",
+          });
+          
+          if (profile.profile_picture) {
+            setProfilePicturePreview(`http://localhost:8000/storage/${profile.profile_picture}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    } finally {
+      setInitialLoading(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -144,9 +197,6 @@ export default function CompleteProfile() {
     
     try {
       const token = localStorage.getItem('token');
-      const userStr = localStorage.getItem('user');
-      const user = userStr ? JSON.parse(userStr) : null;
-      const userId = user?.id;
       
       const response = await fetch('http://localhost:8000/api/profile/complete', {
         method: 'POST',
@@ -159,8 +209,8 @@ export default function CompleteProfile() {
           bio: formData.bio,
           preferred_work_type: formData.preferredWorkType,
           internship_type: formData.internshipType,
-          preferred_duration_min: formData.preferredDurationMin,
-          preferred_duration_max: formData.preferredDurationMax,
+          preferred_duration_min: formData.preferredDurationMin ? parseInt(formData.preferredDurationMin) : null,
+          preferred_duration_max: formData.preferredDurationMax ? parseInt(formData.preferredDurationMax) : null,
           skills: formData.skills,
           languages: formData.languages,
           linkedin_url: formData.linkedinUrl,
@@ -172,8 +222,8 @@ export default function CompleteProfile() {
       const data = await response.json();
       
       if (response.ok) {
-        if (profilePicture && userId) {
-          await uploadProfilePicture(userId);
+        if (profilePicture && user?.id) {
+          await uploadProfilePicture(user.id);
         }
         
         Swal.fire({
@@ -203,6 +253,14 @@ export default function CompleteProfile() {
       setLoading(false);
     }
   };
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#16A34A]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-linear-to-br from-[#F0FDF4] to-white font-sans">

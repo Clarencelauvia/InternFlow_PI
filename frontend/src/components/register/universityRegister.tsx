@@ -3,14 +3,15 @@ import { Link } from "react-router-dom";
 import Swal from "sweetalert2";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
-import countries from "../register/countries.json";
+import countries from "./countries.json";
 import { 
-  FaBuilding, FaMapMarkerAlt, FaEnvelope, FaPhone, FaLock, 
-  FaUser, FaBriefcase, FaCheckCircle, FaArrowRight, FaArrowLeft,
-  FaGlobe, FaUsers, FaProjectDiagram, FaCamera, FaSpinner, FaChevronDown
+  FaUniversity, FaMapMarkerAlt, FaEnvelope, FaPhone, FaLock, 
+  FaUser, FaCheckCircle, FaArrowRight, FaArrowLeft,
+  FaGlobe, FaGraduationCap, FaCamera, FaSpinner, FaChevronDown,
+  FaIdCard, FaBuilding
 } from "react-icons/fa";
 
-export default function OrganisationRegistration() {
+export default function UniversityRegistration() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [logo, setLogo] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
@@ -23,46 +24,37 @@ export default function OrganisationRegistration() {
   const [countrySearch, setCountrySearch] = useState("");  
   
   const [formData, setFormData] = useState({
-    organisationName: "",
+    universityName: "",
     domain: "",
-    officialEmail: "",
     location: "",
     postalCode: "",
     officialNumber: "",
     password: "",
     confirmPassword: "",
     departments: [] as string[],
-    projects: [] as string[],
     adminName: "",
-    // adminEmail: "",
+    adminEmail: "",
     adminContact: "",
     adminRole: "",
+    institutionCode: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const departmentOptions = [
-    "Recherche & Développement",
+    "Informatique & Technologies",
+    "Mathématiques & Statistiques", 
+    "Physique & Sciences",
+    "Biologie & Sciences de la Vie",
+    "Économie & Gestion",
     "Marketing & Communication",
-    "Finance & Comptabilité",
-    "Ressources Humaines",
-    "Opérations & Logistique",
-    "Informatique & IT",
-    "Ventes & Business Development",
-    "Banque & Finance",
-    "Comptabilité"
-  ];
-  
-  const projectOptions = [
-    "Intelligence Artificielle",
-    "Développement Web",
-    "Applications Mobiles",
-    "Analyse de Données",
-    "Cybersécurité",
-    "Cloud Computing",
-    "Marketing Digital",
-    "Artisanal"
+    "Droit & Sciences Politiques",
+    "Lettres & Sciences Humaines",
+    "Médecine & Santé",
+    "Ingénierie & Technologies",
+    "Architecture & Design",
+    "Arts & Culture"
   ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,40 +62,39 @@ export default function OrganisationRegistration() {
   };
 
   const filteredCountries = countries.filter(country =>
-  country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-  country.dial_code.includes(countrySearch)
-);
+    country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+    country.dial_code.includes(countrySearch)
+  );
 
- const getFullPhoneNumber = () => {
-    return `${selectedCountryCode} ${phoneNumber.replace(/\s/g, "")}`;
+  const getFullPhoneNumber = () => {
+    // Remove all spaces from the phone number and prepend the selected country code
+    const cleanNumber = phoneNumber.replace(/\s/g, "");
+    return `${selectedCountryCode} ${cleanNumber}`;
   }
-    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  // Remove non-digits and spaces
-  let value = e.target.value;
-  
-  // If user pastes a number with country code, extract it
-  for (const country of countries) {
-    if (value.startsWith(country.dial_code)) {
-      setSelectedCountryCode(country.dial_code);
-      value = value.substring(country.dial_code.length);
-      break;
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    
+    for (const country of countries) {
+      if (value.startsWith(country.dial_code)) {
+        setSelectedCountryCode(country.dial_code);
+        value = value.substring(country.dial_code.length);
+        break;
+      }
     }
-  }
-  // Remove all non-digits
-  const cleaned = value.replace(/\D/g, '');
-  
-  // Format the number (example: XX XX XX XX XX)
-  const match = cleaned.match(/^(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})$/);
-  if (match) {
-    setPhoneNumber(`${match[1]} ${match[2]} ${match[3]} ${match[4]} ${match[5]}`);
-  } else if (cleaned.length <= 10) {
-    // Format as XX XX XX XX for numbers with less digits
-    const parts = cleaned.match(/.{1,3}/g);
-    setPhoneNumber(parts ? parts.join(' ') : cleaned);
-  } else {
-    setPhoneNumber(cleaned);
-  }
-};
+    
+    const cleaned = value.replace(/\D/g, '');
+    
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})$/);
+    if (match) {
+      setPhoneNumber(`${match[1]} ${match[2]} ${match[3]} ${match[4]} ${match[5]}`);
+    } else if (cleaned.length <= 10) {
+      const parts = cleaned.match(/.{1,3}/g);
+      setPhoneNumber(parts ? parts.join(' ') : cleaned);
+    } else {
+      setPhoneNumber(cleaned);
+    }
+  };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -132,34 +123,35 @@ export default function OrganisationRegistration() {
     }
   };
 
-const uploadLogo = async (orgId: number): Promise<string | null> => {
-  if (!logo) return null;
-  
-  const formData = new FormData();
-  formData.append('logo', logo);
-  formData.append('organization_id', orgId.toString());
-  
-  try {
-    const response = await fetch('http://localhost:8000/api/upload/organization-logo', {
-      method: 'POST',
-      body: formData,
-    });
+  const uploadLogo = async (universityId: number): Promise<string | null> => {
+    if (!logo) return null;
     
-    const data = await response.json();
-    console.log("Upload response:", data); 
+    const formData = new FormData();
+    formData.append('logo', logo);
+    formData.append('university_id', universityId.toString());
     
-    if (response.ok) {
-      return data.path;
-    } 
+    try {
+      const response = await fetch('http://localhost:8000/api/upload/university-logo', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const data = await response.json();
+      console.log("Upload response:", data); 
+      
+      if (response.ok) {
+        return data.path;
+      } 
       return null;
-    
-  } catch (error) {
-    console.error("Upload error:", error);
-    return null;
-  }
-};
+      
+    } catch (error) {
+      console.error("Upload error:", error);
+      return null;
+    }
+  };
 
-  const toggleSelect = (value: string, listKey: "departments" | "projects") => {
+  // Fixed toggleSelect - only accepts "departments" since "projects" doesn't exist in formData
+  const toggleSelect = (value: string, listKey: "departments") => {
     const list = formData[listKey];
     setFormData({
       ...formData,
@@ -167,7 +159,7 @@ const uploadLogo = async (orgId: number): Promise<string | null> => {
     });
   };
 
-    useEffect(() => {
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowCountryDropdown(false);
@@ -182,8 +174,8 @@ const uploadLogo = async (orgId: number): Promise<string | null> => {
 
   const handleNext = () => {
     if (step === 1) {
-      if (!formData.organisationName || !formData.domain || !formData.location || 
-          !formData.postalCode || !formData.password) {
+      if (!formData.universityName || !formData.domain || !formData.location || 
+          !formData.postalCode || !formData.password || !formData.institutionCode) {
         Swal.fire({
           icon: "error",
           title: "Erreur de validation",
@@ -199,19 +191,18 @@ const uploadLogo = async (orgId: number): Promise<string | null> => {
         });
         return;
       }
-            const cleanPhone =  phoneNumber.replace(/\s/g, '');
-            if (!cleanPhone || cleanPhone.length<6){
-              Swal.fire({
-                icon: "error",
-                title: "Erreur de validation",
-                text: "Veuillez entrer un numero de telephone valide (au moins 6 chiffres)"
-              }
-              );
-              return;
-            }
-            console.log("Moving from step 1 to 2");
-            setStep(2);
-            return;
+      const cleanPhone = phoneNumber.replace(/\s/g, '');
+      if (!cleanPhone || cleanPhone.length < 6) {
+        Swal.fire({
+          icon: "error",
+          title: "Erreur de validation",
+          text: "Veuillez entrer un numéro de téléphone valide (au moins 6 chiffres)"
+        });
+        return;
+      }
+      console.log("Moving from step 1 to 2");
+      setStep(2);
+      return;
     }
     if (step === 2) {
       if (formData.departments.length === 0) {
@@ -229,146 +220,133 @@ const uploadLogo = async (orgId: number): Promise<string | null> => {
   
   const handlePrev = () => setStep((prev) => (prev > 1 ? (prev - 1) as 1 | 2 | 3 : prev));
   
-const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
-   console.log("handleSubmit fired — current step =", step); 
-  e.preventDefault();
-   if (step !== 3) {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+     if (step !== 3) {
     return;
   }
-  
-  if (!formData.organisationName || !formData.domain || !formData.location || 
-      !formData.postalCode || !formData.password) {
-    Swal.fire({
-      icon: "error",
-      title: "Erreur de validation",
-      text: "Veuillez remplir tous les champs de l'organisation"
-    });
-    return;
-  }
-  
-  const cleanPhone = phoneNumber.replace(/\s/g, '');
-  if(!cleanPhone || cleanPhone.length<8){
+    
+    if (!formData.universityName || !formData.domain || !formData.location || 
+        !formData.postalCode || !formData.password || !formData.institutionCode) {
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de validation",
+        text: "Veuillez remplir tous les champs de l'université"
+      });
+      return;
+    }
+    
+    const cleanPhone = phoneNumber.replace(/\s/g, '');
+    if (!cleanPhone || cleanPhone.length < 8) {
       Swal.fire({
         icon: "error",
         title: "Erreur de validation",
         text: "Veuillez entrer un numéro de téléphone valide"
       });
       return;
-  }
-  if (formData.password !== formData.confirmPassword) {
-    Swal.fire({
-      icon: "error",
-      title: "Erreur de validation",
-      text: "Les mots de passe ne correspondent pas"
-    });
-    return;
-  }
-  
-  if (formData.departments.length === 0) {
-    Swal.fire({
-      icon: "error",
-      title: "Erreur de validation",
-      text: "Veuillez sélectionner au moins un département"
-    });
-    return;
-  }
-  
-  if (!formData.adminName || !formData.officialEmail || !formData.adminContact || !formData.adminRole) {
-    Swal.fire({
-      icon: "error",
-      title: "Erreur de validation",
-      text: "Veuillez remplir tous les champs de l'administrateur"
-    });
-    return;
-  }
-  const fullPhoneNumber = getFullPhoneNumber();
-  setUploading(true);
-  
-  try {
-    const response = await fetch("http://localhost:8000/api/register/organization", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        organisationName: formData.organisationName,
-        domain: formData.domain,
-        officialEmail: formData.officialEmail,
-        location: formData.location,
-        postalCode: formData.postalCode,
-        officialNumber: fullPhoneNumber,
-        password: formData.password,
-        password_confirmation: formData.confirmPassword,
-        departments: formData.departments,
-        projects: formData.projects,
-        adminName: formData.adminName,
-        // adminEmail: formData.adminEmail,
-        adminContact: formData.adminContact,
-        adminRole: formData.adminRole
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (response.ok) {
-      if (logo && data.user?.id) {
-        const logoPath = await uploadLogo(data.user.id);
-        if (logoPath) {
-          console.log("Logo uploaded successfully");
-        }
-      }
-      
-      // Store company code for verification
-      localStorage.setItem('pending_company_email', formData.officialEmail);
-      localStorage.setItem('pending_company_code', data.company_code);
-      
-      Swal.fire({
-        icon: "success",
-        title: "Inscription réussie !",
-        html: `
-          <div style="text-align: left;">
-            <p>Votre compte a été créé avec succès !</p>
-            <p>Un email de vérification a été envoyé à <strong>${formData.officialEmail}</strong> contenant :</p>
-            <ul style="margin-top: 10px;">
-              <li>📧 Votre code de vérification à 6 chiffres</li>
-              <li>🏢 Votre code entreprise unique</li>
-            </ul>
-            <p style="margin-top: 15px; color: #16a34a;">Veuillez vérifier votre boîte de réception (et vos spams) pour activer votre compte.</p>
-          </div>
-        `,
-        confirmButtonText: "J'ai compris",
-        confirmButtonColor: "#16a34a",
-        allowOutsideClick: false
-      }).then(() => {
-        window.location.href = "/verifyEmail"; 
-      });
-    } else {
-      console.error("Registration failed:", data);
-      let errorMessage = "Une erreur est survenue lors de l'inscription.";
-      
-      if (data.errors) {
-        errorMessage = Object.values(data.errors).flat().join('\n');
-      } else if (data.message) {
-        errorMessage = data.message;
-      }
-      
+    }
+    if (formData.password !== formData.confirmPassword) {
       Swal.fire({
         icon: "error",
-        title: "Erreur d'inscription",
-        text: errorMessage
+        title: "Erreur de validation",
+        text: "Les mots de passe ne correspondent pas"
       });
+      return;
     }
-  } catch(error) {
-    console.error("Network error:", error);
-    Swal.fire({
-      icon: "error",
-      title: "Erreur de réseau",
-      text: "Impossible de contacter le serveur. Veuillez vérifier que le serveur backend est en cours d'exécution."
-    });
-  } finally {
-    setUploading(false);
-  }
-};
+    
+    if (formData.departments.length === 0) {
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de validation",
+        text: "Veuillez sélectionner au moins un département"
+      });
+      return;
+    }
+    
+    if (!formData.adminName || !formData.adminEmail || !formData.adminContact || !formData.adminRole) {
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de validation",
+        text: "Veuillez remplir tous les champs de l'administrateur"
+      });
+      return;
+    }
+    
+    const fullPhoneNumber = getFullPhoneNumber();
+    setUploading(true);
+    
+    try {
+      const response = await fetch("http://localhost:8000/api/register/university", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          universityName: formData.universityName,
+          domain: formData.domain,
+          location: formData.location,
+          postalCode: formData.postalCode,
+          officialNumber: fullPhoneNumber,
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+          departments: formData.departments,
+          adminName: formData.adminName,
+          adminEmail: formData.adminEmail,
+          adminContact: formData.adminContact,
+          adminRole: formData.adminRole,
+          institutionCode: formData.institutionCode,
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+
+        if (logo && data.user?.id) {
+          const logoPath = await uploadLogo(data.user.id);
+          if (logoPath) {
+            console.log("Logo uploaded successfully");
+          }
+        }
+        
+        Swal.fire({
+          icon: "success",
+          title: "Inscription réussie",
+          text: "Votre compte universitaire a été créé avec succès. Vous allez être redirigé vers la page de connexion.",
+          timer: 3000,
+          showConfirmButton: true,
+          willClose: () => {
+            window.location.href = "/login/universitylogin";
+          }
+        });
+      } else {
+        console.error("Registration failed:", data);
+        let errorMessage = "une erreur est survenue";
+        if(data.errors){
+          errorMessage = Object.values(data.errors).flat().join('\n');
+        }else if(data.details){
+          errorMessage = data.details;
+        } else if(data.error){
+          errorMessage = data.error;
+        }
+        Swal.fire({
+          icon: "error",
+          title: "Erreur d'inscription",
+          text: data.message || errorMessage
+        });
+      }
+    } catch(error) {
+      console.error("Network error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erreur de réseau",
+        text: "Une erreur de réseau est survenue. Veuillez réessayer plus tard."
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-linear-to-br from-[#F0FDF4] to-white font-sans">
@@ -403,13 +381,13 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-block px-4 py-2 bg-[#16A34A]/10 rounded-full mb-4">
-              <span className="text-[#16A34A] font-semibold text-sm">Inscription entreprise</span>
+              <span className="text-[#16A34A] font-semibold text-sm">Inscription université</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-extrabold text-[#16A34A] mb-2">
-              Rejoignez notre réseau d'entreprises
+              Rejoignez notre réseau universitaire
             </h1>
             <p className="text-gray-600">
-              Créez votre compte et accédez aux meilleurs talents étudiants
+              Créez votre compte et gérez les stages de vos étudiants
             </p>
           </div>
 
@@ -421,8 +399,8 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-600">Étape {step} sur 3</span>
                 <span className="text-sm font-medium text-[#16A34A]">
-                  {step === 1 && "Informations organisation"}
-                  {step === 2 && "Départements & Projets"}
+                  {step === 1 && "Informations université"}
+                  {step === 2 && "Départements"}
                   {step === 3 && "Administrateur"}
                 </span>
               </div>
@@ -435,7 +413,7 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
 
             <div className="p-8">
               
-              {/* Step 1: Organisation Info */}
+              {/* Step 1: University Info */}
               {step === 1 && (
                 <div className="space-y-5">
                   {/* Logo Upload */}
@@ -448,7 +426,7 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                         {logoPreview ? (
                           <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
                         ) : (
-                          <FaBuilding size={48} className="text-gray-400" />
+                          <FaUniversity size={48} className="text-gray-400" />
                         )}
                       </div>
                       <button
@@ -468,20 +446,20 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                     </div>
                   </div>
                   <p className="text-center text-xs text-gray-500 -mt-2 mb-4">
-                    Logo de l'entreprise (optionnel, max 5MB)
+                    Logo de l'université (optionnel, max 5MB)
                   </p>
                   
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <FaBuilding className="inline mr-2 text-[#16A34A]" size={14} />
-                        Nom de l'organisation *
+                        <FaUniversity className="inline mr-2 text-[#16A34A]" size={14} />
+                        Nom de l'université *
                       </label>
                       <input 
                         type="text" 
-                        name="organisationName" 
-                        placeholder="Ex: NextGen Tech" 
-                        value={formData.organisationName} 
+                        name="universityName" 
+                        placeholder="Ex: Université de Yaoundé I" 
+                        value={formData.universityName} 
                         onChange={handleChange} 
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
                       />
@@ -495,13 +473,29 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                       <input 
                         type="text" 
                         name="domain" 
-                        placeholder="Ex: techcorp.com" 
+                        placeholder="Ex: univ-yaounde.cm" 
                         value={formData.domain} 
                         onChange={handleChange} 
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
                       />
                     </div>
-              
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <FaIdCard className="inline mr-2 text-[#16A34A]" size={14} />
+                        Code institution *
+                      </label>
+                      <input 
+                        type="text" 
+                        name="institutionCode" 
+                        placeholder="Ex: UNIV-YDE-001" 
+                        value={formData.institutionCode} 
+                        onChange={handleChange} 
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition uppercase"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Code unique pour identifier votre établissement</p>
+                    </div>
+                    
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <FaMapMarkerAlt className="inline mr-2 text-[#16A34A]" size={14} />
@@ -510,7 +504,7 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                       <input 
                         type="text" 
                         name="location" 
-                        placeholder="Ex: NewBell, Douala" 
+                        placeholder="Ex: Yaoundé, Cameroun" 
                         value={formData.location} 
                         onChange={handleChange} 
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
@@ -524,7 +518,7 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                       <input 
                         type="text" 
                         name="postalCode" 
-                        placeholder="Ex: 75001" 
+                        placeholder="Ex: 00237" 
                         value={formData.postalCode} 
                         onChange={handleChange} 
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
@@ -537,7 +531,6 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                         Numéro officiel *
                       </label>
                       <div className="relative" ref={dropdownRef}>
-                        {/* Country Code Button */}
                         <button
                           type="button"
                           onClick={() => setShowCountryDropdown(!showCountryDropdown)}
@@ -547,7 +540,6 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                           <FaChevronDown size={10} className={`transition-transform ${showCountryDropdown ? 'rotate-180' : ''}`} />
                         </button>
                         
-                        {/* Phone Input */}
                         <input 
                           type="tel" 
                           name="contact"
@@ -557,10 +549,8 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                           className="w-full border border-gray-300 rounded-xl pl-28 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
                         />
                         
-                        {/* Dropdown Menu with Search */}
                         {showCountryDropdown && (
                           <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto">
-                            {/* Search Input */}
                             <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
                               <input
                                 type="text"
@@ -574,7 +564,6 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                               />
                             </div>
                             
-                            {/* Countries List - Filtered */}
                             <div className="divide-y divide-gray-100">
                               {filteredCountries.length > 0 ? (
                                 filteredCountries.map((country) => (
@@ -584,7 +573,7 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                                     onClick={() => {
                                       setSelectedCountryCode(country.dial_code);
                                       setShowCountryDropdown(false);
-                                      setCountrySearch(""); // Reset search after selection
+                                      setCountrySearch("");
                                     }}
                                     className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition text-left"
                                   >
@@ -619,7 +608,6 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                         <input 
                           type={showPassword ? "text" : "password"} 
                           name="password" 
-                          placeholder="Entrez votre mot de passe" 
                           value={formData.password} 
                           onChange={handleChange}
                           className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
@@ -661,13 +649,13 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                 </div>
               )}
 
-              {/* Step 2: Departments & Projects */}
+              {/* Step 2: Departments */}
               {step === 2 && (
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      <FaUsers className="inline mr-2 text-[#16A34A]" size={14} />
-                      Départements concernés * (sélectionnez au moins un)
+                      <FaGraduationCap className="inline mr-2 text-[#16A34A]" size={14} />
+                      Départements / Facultés * (sélectionnez au moins un)
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {departmentOptions.map(d => (
@@ -689,42 +677,16 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                       {formData.departments.length} département(s) sélectionné(s)
                     </p>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      <FaProjectDiagram className="inline mr-2 text-[#16A34A]" size={14} />
-                      Projets & Technologies
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {projectOptions.map(p => (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => toggleSelect(p, "projects")}
-                          className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                            formData.projects.includes(p) 
-                              ? 'bg-[#16A34A] text-white shadow-md' 
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {formData.projects.length} projet(s) sélectionné(s)
-                    </p>
-                  </div>
                 </div>
               )}
 
               {/* Step 3: Admin Info */}
               {step === 3 && (
                 <div className="space-y-5">
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
-                    <p className="text-sm text-blue-800">
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-4">
+                    <p className="text-sm text-indigo-800">
                       <FaUser className="inline mr-2" />
-                      Informations de l'administrateur principal du compte
+                      Informations de l'administrateur principal du compte universitaire
                     </p>
                   </div>
                   
@@ -737,7 +699,7 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                       <input 
                         type="text" 
                         name="adminName" 
-                        placeholder="Ex: Siwe Edward" 
+                        placeholder="Ex: Prof. Jean Dupont" 
                         value={formData.adminName} 
                         onChange={handleChange} 
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
@@ -751,9 +713,9 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                       </label>
                       <input 
                         type="email" 
-                        name="officialEmail" 
-                        placeholder="Ex: siwe@nextgentech.com" 
-                        value={formData.officialEmail} 
+                        name="adminEmail" 
+                        placeholder="Ex: contact@universite.cm" 
+                        value={formData.adminEmail} 
                         onChange={handleChange} 
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
                       />
@@ -767,22 +729,24 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
                       <input 
                         type="tel" 
                         name="adminContact" 
-                        placeholder="Ex: +33 6 12 34 56 78" 
+                        placeholder="Ex: +237 6 12 34 56 78" 
                         value={formData.adminContact} 
                         onChange={handleChange} 
-                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 
+                        focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent 
+                        transition"
                       />
                     </div>
                     
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <FaBriefcase className="inline mr-2 text-[#16A34A]" size={14} />
+                        <FaBuilding className="inline mr-2 text-[#16A34A]" size={14} />
                         Fonction / Rôle *
                       </label>
                       <input 
                         type="text" 
                         name="adminRole" 
-                        placeholder="Ex: Responsable RH, Directeur Technique, etc." 
+                        placeholder="Ex: Doyen, Chef de département, Responsable des stages" 
                         value={formData.adminRole} 
                         onChange={handleChange} 
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
@@ -832,7 +796,7 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-500">
                   Vous avez déjà un compte ?{" "}
-                  <Link to="/login" className="text-[#16A34A] font-semibold hover:underline">
+                  <Link to="/login/universitylogin" className="text-[#16A34A] font-semibold hover:underline">
                     Se connecter
                   </Link>
                 </p>

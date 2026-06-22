@@ -6,6 +6,7 @@ import {
   FaFacebook, FaGoogle, FaApple, FaQuestionCircle, FaIdCard,
   FaBuilding, FaGlobe, FaKey, FaUserTie
 } from "react-icons/fa";
+import Swal from "sweetalert2";
 
 export default function UniversityLogin() {
   const navigate = useNavigate();
@@ -77,12 +78,39 @@ export default function UniversityLogin() {
     
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch('http://localhost:8000/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          role: 'university'
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        navigate("/dashboard/universityDashboard");
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Erreur de connexion",
+          text: data.error || "Email ou mot de passe incorrect"
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Erreur réseau",
+        text: "Impossible de contacter le serveur"
+      });
+    } finally {
       setIsLoading(false);
-      // Redirect to university dashboard after successful login
-      navigate("/university/dashboard");
-    }, 1500);
+    }
   };
 
   const handleSocialLogin = (provider: string) => {
@@ -91,7 +119,7 @@ export default function UniversityLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F0FDF4] to-white font-sans">
+    <div className="min-h-screen bg-linear-to-br from-[#F0FDF4] to-white font-sans">
       
       {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-sm shadow-lg">
@@ -261,7 +289,7 @@ export default function UniversityLogin() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-linear-to-r from-[#16A34A] to-[#059669] text-white font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -312,7 +340,7 @@ export default function UniversityLogin() {
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-500">
                   Votre établissement n'est pas encore inscrit ?{" "}
-                  <Link to="/register/university" className="text-[#16A34A] font-semibold hover:underline">
+                  <Link to="/register/universityRegister" className="text-[#16A34A] font-semibold hover:underline">
                     Contacter notre équipe
                   </Link>
                 </p>

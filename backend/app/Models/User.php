@@ -3,7 +3,6 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -11,7 +10,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
@@ -20,21 +19,20 @@ class User extends Authenticatable
         'role',
         'contact',
         'status',
+        'verification_code',
+        'email_verified_at',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'verification_code',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
-    
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+    ];
+
     public function studentProfile()
     {
         return $this->hasOne(StudentProfile::class);
@@ -45,23 +43,8 @@ class User extends Authenticatable
         return $this->hasOne(OrganizationProfile::class);
     }
 
-    public function applications()
+    public function universityProfile()
     {
-        return $this->hasMany(Application::class, 'student_id');
-    }
-    
-    public function isStudent()
-    {
-        return $this->role === 'student';
-    }
-
-    public function isOrganization()
-    {
-        return $this->role === 'organization';
-    }
-
-    public function isAdmin()
-    {
-        return $this->role === 'admin';
+        return $this->hasOne(UniversityProfile::class);
     }
 }

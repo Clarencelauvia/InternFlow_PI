@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Swal from "sweetalert2";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -8,7 +8,8 @@ import {
   faStar, faSearch, faList, faChartPie, faChevronRight, 
   faBuilding, faCalendarAlt, faSave, faTimes, faPhone, 
   faUniversity, faBook, faGraduationCap, faIdCard, 
-  faExclamationTriangle, faMapMarkerAlt, 
+  faExclamationTriangle, faMapMarkerAlt, faEye, faFilter,
+  faSpinner, faArrowRight, faMoneyBillWave, faPaperPlane
 } from "@fortawesome/free-solid-svg-icons";
 import {
   Chart as ChartJS,
@@ -23,7 +24,7 @@ import {
   Filler
 } from 'chart.js';
 import { Line, Pie } from 'react-chartjs-2';
-import { FaMapMarkerAlt as FaMapMarkerAltIcon, FaLinkedin, FaGithub, FaGlobe } from "react-icons/fa";
+import { FaMapMarkerAlt as FaMapMarkerAltIcon } from "react-icons/fa";
 
 ChartJS.register(
   CategoryScale,
@@ -77,6 +78,13 @@ interface Internship {
   end_date: string;
   slots: number;
   status: string;
+  internship_type: string;
+  payment_type: string;
+  salary: number;
+  department?: string;
+  requirements?: string;
+  benefits?: string;
+  created_at: string;
   organization: {
     organisation_name: string;
   };
@@ -104,6 +112,9 @@ export default function StudentDashboard() {
   const [editedProfile, setEditedProfile] = useState<Partial<StudentProfile>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [loadingInternships, setLoadingInternships] = useState(false);
+  const [selectedInternshipDetail, setSelectedInternshipDetail] = useState<Internship | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const profileCompletionPercentage = useMemo(() => {
     if (!profile) return 0;
@@ -124,7 +135,7 @@ export default function StudentDashboard() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      navigate("/login/student");
+      navigate("/login/studentLogin");
       return;
     }
     fetchUserData();
@@ -132,55 +143,84 @@ export default function StudentDashboard() {
     fetchApplications();
   }, []);
 
-  const fetchUserData = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/login/student");
-      return;
-    }
-    
-    try {
-      const response = await fetch("http://localhost:8000/api/profile", {
-        headers: { 
-          "Authorization": `Bearer ${token}`,
-          "Accept": "application/json"
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data);
-        setProfile(data.student_profile);
-        setEditedUser({ name: data.name, contact: data.contact });
-        setEditedProfile(data.student_profile || {});
-      } else if (response.status === 401) {
-        localStorage.clear();
-        navigate("/login/student");
+// Update the fetchUserData function to properly load profile data
+const fetchUserData = async () => {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    navigate("/login/studentLogin");
+    return;
+  }
+  
+  try {
+    const response = await fetch("http://localhost:8000/api/profile", {
+      headers: { 
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/json"
       }
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-    } finally {
-      setLoading(false);
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      setUser(data);
+      setProfile(data.student_profile);
+      // Make sure editedProfile has all existing data
+      setEditedUser({ name: data.name, contact: data.contact });
+      setEditedProfile({
+        ...(data.student_profile || {}),
+        location: data.student_profile?.location || '',
+        skills: data.student_profile?.skills || '',
+        preferred_work_type: data.student_profile?.preferred_work_type || '',
+        internship_type: data.student_profile?.internship_type || '',
+        languages: data.student_profile?.languages || '',
+        bio: data.student_profile?.bio || '',
+        linkedin_url: data.student_profile?.linkedin_url || '',
+        github_url: data.student_profile?.github_url || '',
+        portfolio_url: data.student_profile?.portfolio_url || '',
+      });
+    } else if (response.status === 401) {
+      localStorage.clear();
+      navigate("/login/studentLogin");
     }
-  };
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchInternships = async () => {
-    const token = localStorage.getItem("token");
+    setLoadingInternships(true);
     try {
+      const token = localStorage.getItem("token");
+      // Sending the token makes the backend personalize results to the student's
+      // profile (location, preferred duration, internship type) via index().
       const response = await fetch("http://localhost:8000/api/internships", {
-        headers: { "Authorization": `Bearer ${token}` }
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
       if (response.ok) {
         const data = await response.json();
-        setInternships(data.data || []);
+        setInternships(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error("Error fetching internships:", error);
+    } finally {
+      setLoadingInternships(false);
     }
   };
 
   const fetchApplications = async () => {
-    
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch("http://localhost:8000/api/student/applications", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setApplications(data);
+      }
+    } catch (error) {
+      console.error("Error fetching applications:", error);
+    }
   };
 
   const handleLogout = () => {
@@ -203,50 +243,20 @@ export default function StudentDashboard() {
           });
         }
         localStorage.clear();
-        navigate("/login/student");
+        navigate("/login/studentLogin");
       }
     });
   };
 
-  const handleApply = async (internshipId: number) => {
-    const token = localStorage.getItem("token");
-    const { value: coverLetter } = await Swal.fire({
-      title: "Lettre de motivation",
-      input: "textarea",
-      inputPlaceholder: "Rédigez votre lettre de motivation...",
-      showCancelButton: true,
-      confirmButtonText: "Envoyer",
-      cancelButtonText: "Annuler"
-    });
-
-    if (coverLetter) {
-      try {
-        const response = await fetch(`http://localhost:8000/api/internships/${internshipId}/apply`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ cover_letter: coverLetter })
-        });
-
-        if (response.ok) {
-          Swal.fire("Succès", "Candidature envoyée avec succès", "success");
-          fetchApplications();
-        } else {
-          const data = await response.json();
-          Swal.fire("Erreur", data.error || "Une erreur est survenue", "error");
-        }
-      } catch (error) {
-        Swal.fire("Erreur", "Impossible d'envoyer la candidature", "error");
-      }
-    }
+  const viewInternshipDetails = (internship: Internship) => {
+    setSelectedInternshipDetail(internship);
+    setShowDetailModal(true);
   };
+
 
   const updateProfile = async () => {
     const token = localStorage.getItem("token");
     try {
-      // Update user info
       if (editedUser.name || editedUser.contact) {
         await fetch("http://localhost:8000/api/profile", {
           method: "PUT",
@@ -258,7 +268,6 @@ export default function StudentDashboard() {
         });
       }
       
-      // Update student profile
       const profileResponse = await fetch("http://localhost:8000/api/profile/complete", {
         method: "POST",
         headers: {
@@ -269,7 +278,13 @@ export default function StudentDashboard() {
       });
 
       if (profileResponse.ok) {
-        Swal.fire("Succès", "Profil mis à jour", "success");
+        Swal.fire({
+          icon: "success",
+          title: "Succès",
+          text: "Profil mis à jour",
+          timer: 1500,
+          showConfirmButton: false
+        });
         fetchUserData();
         setIsEditing(false);
       } else {
@@ -282,8 +297,9 @@ export default function StudentDashboard() {
   };
 
   const filteredInternships = internships.filter(internship =>
-    internship.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    internship.organization?.organisation_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    internship.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    internship.organization?.organisation_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    internship.location?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const stats = {
@@ -299,7 +315,7 @@ export default function StudentDashboard() {
     labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
     datasets: [{
       label: 'Candidatures',
-      data: [2, 4, 3, 5, 7, 4],
+      data: [2, 4, 3, 5, 7, stats.totalApplications],
       borderColor: '#16A34A',
       backgroundColor: 'rgba(22, 163, 74, 0.1)',
       fill: true,
@@ -335,36 +351,45 @@ export default function StudentDashboard() {
       {/* Sidebar */}
       <aside className="w-64 bg-linear-to-br from-[#0D5D2E] to-[#16A34A] text-white flex flex-col shadow-xl fixed h-full overflow-y-auto">
         <div className="p-6 text-center border-b border-green-400/30">
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-3 overflow-hidden">
-    {profile?.profile_picture ? (
-      <img 
-        src={`http://localhost:8000/storage/${profile.profile_picture}`} 
-        alt="Profile" 
-        className="w-full h-full object-cover" 
-      />
-    ) : (
-      <FontAwesomeIcon icon={faGraduationCap} className="text-white text-xl" />
-    )}
-  </div>
+          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-3 overflow-hidden">
+            {profile?.profile_picture ? (
+              <img 
+                src={`http://localhost:8000/storage/${profile.profile_picture}`} 
+                alt="Profile" 
+                className="w-full h-full object-cover" 
+              />
+            ) : (
+              <FontAwesomeIcon icon={faGraduationCap} className="text-white text-xl" />
+            )}
+          </div>
           <h1 className="text-xl font-bold tracking-wide">InternFlow</h1>
           <p className="text-xs text-green-200 mt-1">Espace Étudiant</p>
         </div>
 
-        <nav className="flex-1 flex flex-col gap-1 p-4">
-          <button onClick={() => setActiveTab("dashboard")} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition font-medium ${activeTab === "dashboard" ? "bg-white/20 backdrop-blur-sm" : "hover:bg-white/10"}`}>
-            <FontAwesomeIcon icon={faChartLine} className="w-5" /> Tableau de bord
-          </button>
-          <button onClick={() => setActiveTab("internships")} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition font-medium relative ${activeTab === "internships" ? "bg-white/20 backdrop-blur-sm" : "hover:bg-white/10"}`}>
-            <FontAwesomeIcon icon={faBriefcase} className="w-5" /> Stages disponibles
-            {internships.length > 0 && <span className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 bg-white/20 rounded-full text-xs flex items-center justify-center">{internships.length > 9 ? '9+' : internships.length}</span>}
-          </button>
-          <button onClick={() => setActiveTab("applications")} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition font-medium ${activeTab === "applications" ? "bg-white/20 backdrop-blur-sm" : "hover:bg-white/10"}`}>
-            <FontAwesomeIcon icon={faFileUpload} className="w-5" /> Mes candidatures
-          </button>
-          <button onClick={() => setActiveTab("profile")} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition font-medium ${activeTab === "profile" ? "bg-white/20 backdrop-blur-sm" : "hover:bg-white/10"}`}>
-            <FontAwesomeIcon icon={faUser} className="w-5" /> Mon profil
-          </button>
-        </nav>
+<nav className="flex-1 flex flex-col gap-1 p-4">
+  <button onClick={() => setActiveTab("dashboard")} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition font-medium ${activeTab === "dashboard" ? "bg-white/20 backdrop-blur-sm" : "hover:bg-white/10"}`}>
+    <FontAwesomeIcon icon={faChartLine} className="w-5" /> Tableau de bord
+  </button>
+  <button onClick={() => setActiveTab("internships")} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition font-medium relative ${activeTab === "internships" ? "bg-white/20 backdrop-blur-sm" : "hover:bg-white/10"}`}>
+    <FontAwesomeIcon icon={faBriefcase} className="w-5" /> Stages disponibles
+    {internships.length > 0 && (
+      <span className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 bg-white/20 rounded-full text-xs flex items-center justify-center">
+        {internships.length > 9 ? '9+' : internships.length}
+      </span>
+    )}
+  </button>
+  <button onClick={() => setActiveTab("applications")} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition font-medium relative ${activeTab === "applications" ? "bg-white/20 backdrop-blur-sm" : "hover:bg-white/10"}`}>
+    <FontAwesomeIcon icon={faFileUpload} className="w-5" /> Mes candidatures
+    {applications.filter(a => a.status === "pending").length > 0 && (
+      <span className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 bg-yellow-400 rounded-full text-xs flex items-center justify-center text-white">
+        {applications.filter(a => a.status === "pending").length > 9 ? '9+' : applications.filter(a => a.status === "pending").length}
+      </span>
+    )}
+  </button>
+  <button onClick={() => setActiveTab("profile")} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition font-medium ${activeTab === "profile" ? "bg-white/20 backdrop-blur-sm" : "hover:bg-white/10"}`}>
+    <FontAwesomeIcon icon={faUser} className="w-5" /> Mon profil
+  </button>
+</nav>
 
         <div className="p-4 border-t border-green-400/30">
           <button onClick={handleLogout} className="w-full flex items-center gap-3 bg-red-500/80 hover:bg-red-600 px-4 py-3 rounded-lg transition font-medium">
@@ -382,7 +407,7 @@ export default function StudentDashboard() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-800">
-                Bienvenue, <span className="text-[#16A34A]">{user?.name?.split(' ')[1] || 'Étudiant'} !</span>
+                Bienvenue, <span className="text-[#16A34A]">{user?.name?.split(' ')[0] || 'Étudiant'} !</span>
               </h1>
               <p className="text-gray-500 mt-1">Gérez vos candidatures et trouvez le stage idéal</p>
             </div>
@@ -395,7 +420,7 @@ export default function StudentDashboard() {
                 )}
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">{user?.name?.split(' ')[1] || 'Étudiant'}</p>
+                <p className="text-sm font-medium text-gray-700">{user?.name?.split(' ')[0] || 'Étudiant'}</p>
                 <p className="text-xs text-gray-400">{user?.email || 'student@example.com'}</p>
               </div>
             </div>
@@ -457,7 +482,9 @@ export default function StudentDashboard() {
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-800">Stages récents</h3>
-                  <button onClick={() => setActiveTab("internships")} className="text-[#16A34A] text-sm hover:underline">Voir tous</button>
+                  <Link to="/internships" className="text-[#16A34A] text-sm hover:underline inline-flex items-center gap-1">
+                    Voir tous les stages <FontAwesomeIcon icon={faArrowRight} className="w-3 h-3" />
+                  </Link>
                 </div>
                 <div className="space-y-3">
                   {internships.slice(0, 3).map((internship) => (
@@ -469,7 +496,12 @@ export default function StudentDashboard() {
                           <span><FontAwesomeIcon icon={faMapMarkerAlt} className="mr-1" /> {internship.location}</span>
                         </div>
                       </div>
-                      <button onClick={() => handleApply(internship.id)} className="px-4 py-2 bg-[#16A34A] text-white rounded-lg hover:bg-[#059669] transition text-sm">Postuler</button>
+                      <button 
+                        onClick={() => viewInternshipDetails(internship)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                      >
+                        Voir détails
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -481,29 +513,201 @@ export default function StudentDashboard() {
           {activeTab === "internships" && (
             <div className="space-y-6">
               <div className="flex justify-between items-center flex-wrap gap-4">
-                <h2 className="text-2xl font-bold text-gray-800">Stages disponibles</h2>
-                <div className="flex gap-3">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Stages recommandés pour vous</h2>
+                  <p className="text-gray-500 mt-1">
+                    {profile?.location || profile?.internship_type
+                      ? `Basé sur votre profil${profile?.location ? ` (${profile.location})` : ""} — ${filteredInternships.length} stage(s)`
+                      : `${filteredInternships.length} stage(s) trouvé(s)`}
+                  </p>
+                </div>
+                <div className="flex gap-3 flex-wrap">
                   <div className="relative">
                     <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 border rounded-xl focus:border-[#16A34A] focus:ring-2 focus:ring-green-200 outline-none" />
+                    <input 
+                      type="text" 
+                      placeholder="Rechercher..." 
+                      value={searchTerm} 
+                      onChange={(e) => setSearchTerm(e.target.value)} 
+                      className="pl-10 pr-4 py-2 border rounded-xl focus:border-[#16A34A] focus:ring-2 focus:ring-green-200 outline-none w-64" 
+                    />
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setViewMode("grid")} className={`p-2 rounded-lg ${viewMode === "grid" ? "bg-[#16A34A] text-white" : "bg-gray-100"}`}><FontAwesomeIcon icon={faChartPie} /></button>
-                    <button onClick={() => setViewMode("list")} className={`p-2 rounded-lg ${viewMode === "list" ? "bg-[#16A34A] text-white" : "bg-gray-100"}`}><FontAwesomeIcon icon={faList} /></button>
+                    <button onClick={() => setViewMode("grid")} className={`p-2 rounded-lg ${viewMode === "grid" ? "bg-[#16A34A] text-white" : "bg-gray-100"}`}>
+                      <FontAwesomeIcon icon={faChartPie} />
+                    </button>
+                    <button onClick={() => setViewMode("list")} className={`p-2 rounded-lg ${viewMode === "list" ? "bg-[#16A34A] text-white" : "bg-gray-100"}`}>
+                      <FontAwesomeIcon icon={faList} />
+                    </button>
                   </div>
+                  <button
+                    onClick={() => navigate("/internships")}
+                    className="flex items-center gap-2 px-5 py-2 bg-[#16A34A] text-white rounded-xl hover:bg-[#059669] transition font-medium"
+                  >
+                    <FontAwesomeIcon icon={faBriefcase} /> Voir tous les stages
+                  </button>
                 </div>
               </div>
-              {filteredInternships.length === 0 && <div className="text-center py-12 text-gray-500">Aucun stage trouvé</div>}
+
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800">
+                Ces offres sont filtrées selon votre profil. Pour explorer toutes les offres et la carte interactive, utilisez « Voir tous les stages ».
+              </div>
+
+              {loadingInternships ? (
+                <div className="flex justify-center py-12">
+                  <FontAwesomeIcon icon={faSpinner} spin className="text-4xl text-[#16A34A]" />
+                </div>
+              ) : filteredInternships.length === 0 ? (
+                <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
+                  <FontAwesomeIcon icon={faBriefcase} className="text-gray-300 text-6xl mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">Aucun stage trouvé</h3>
+                  <p className="text-gray-500">Aucun stage ne correspond à vos critères de recherche</p>
+                </div>
+              ) : viewMode === "grid" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredInternships.map((internship) => (
+                    <div key={internship.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all p-5">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="font-bold text-gray-800 text-lg">{internship.title}</h3>
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                          {internship.internship_type === 'professionnel' ? 'Pro' : 'Académique'}
+                        </span>
+                      </div>
+                      <div className="space-y-2 text-sm text-gray-500 mb-3">
+                        <div className="flex items-center gap-1">
+                          <FontAwesomeIcon icon={faBuilding} className="text-green-600" />
+                          <span>{internship.organization?.organisation_name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <FaMapMarkerAltIcon className="text-green-600" />
+                          <span>{internship.location}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <FontAwesomeIcon icon={faClock} className="text-green-600" />
+                          <span>{internship.duration}</span>
+                        </div>
+                        {internship.payment_type === 'paid' && (
+                          <div className="flex items-center gap-1 text-green-600 font-medium">
+                            <FontAwesomeIcon icon={faMoneyBillWave} />
+                            <span>{internship.salary?.toLocaleString()} FCFA/mois</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <button 
+                          onClick={() => viewInternshipDetails(internship)}
+                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                        >
+                          <FontAwesomeIcon icon={faEye} className="mr-1" /> Voir détails
+                        </button>
+                        <button 
+                          onClick={() => navigate(`/internships/${internship.id}`)}
+                          className="flex-1 px-4 py-2 bg-[#16A34A] text-white rounded-lg hover:bg-[#059669] transition text-sm"
+                        >
+                          <FontAwesomeIcon icon={faPaperPlane} className="mr-1" /> Postuler
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredInternships.map((internship) => (
+                    <div key={internship.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all p-5">
+                      <div className="flex flex-col md:flex-row justify-between gap-4">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-800 text-lg">{internship.title}</h3>
+                          <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <FontAwesomeIcon icon={faBuilding} className="text-green-600" /> 
+                              {internship.organization?.organisation_name}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <FaMapMarkerAltIcon className="text-green-600" /> 
+                              {internship.location}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <FontAwesomeIcon icon={faClock} className="text-green-600" /> 
+                              {internship.duration}
+                            </span>
+                          </div>
+                          <p className="text-gray-600 mt-2 line-clamp-2">{internship.description}</p>
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                              {internship.internship_type === 'professionnel' ? 'Stage Professionnel' : 'Stage Académique'}
+                            </span>
+                            {internship.payment_type === 'paid' ? (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                                <FontAwesomeIcon icon={faMoneyBillWave} className="mr-1" /> {internship.salary?.toLocaleString()} FCFA/mois
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Non payé</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <button 
+                            onClick={() => viewInternshipDetails(internship)}
+                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                          >
+                            <FontAwesomeIcon icon={faEye} className="mr-1" /> Voir détails
+                          </button>
+                          <button 
+                            onClick={() => navigate(`/internships/${internship.id}`)}
+                            className="px-6 py-2 bg-[#16A34A] text-white rounded-lg hover:bg-[#059669] transition"
+                          >
+                            <FontAwesomeIcon icon={faPaperPlane} className="mr-1" /> Postuler
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* Applications Tab */}
           {activeTab === "applications" && (
-            <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
-              <FontAwesomeIcon icon={faFileUpload} className="text-gray-300 text-6xl mb-4" />
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">Aucune candidature</h3>
-              <p className="text-gray-500 mb-4">Vous n'avez pas encore postulé à des stages</p>
-              <button onClick={() => setActiveTab("internships")} className="px-6 py-2 bg-[#16A34A] text-white rounded-xl hover:bg-[#059669] transition">Découvrir les stages</button>
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-gray-800">Mes candidatures</h2>
+              {applications.length === 0 ? (
+                <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
+                  <FontAwesomeIcon icon={faFileUpload} className="text-gray-300 text-6xl mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">Aucune candidature</h3>
+                  <p className="text-gray-500 mb-4">Vous n'avez pas encore postulé à des stages</p>
+                  <button onClick={() => setActiveTab("internships")} className="px-6 py-2 bg-[#16A34A] text-white rounded-xl hover:bg-[#059669] transition">
+                    Découvrir les stages
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {applications.map((app) => (
+                    <div key={app.id} className="bg-white rounded-xl shadow-sm p-5">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-bold text-gray-800">{app.internship?.title}</h3>
+                          <p className="text-sm text-gray-500 mt-1">{app.internship?.organization?.organisation_name}</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          app.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                          app.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {app.status === 'accepted' ? 'Acceptée' : 
+                           app.status === 'rejected' ? 'Refusée' : 'En attente'}
+                        </span>
+                      </div>
+                      <div className="mt-3 text-sm text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <FontAwesomeIcon icon={faCalendarAlt} />
+                          Candidature envoyée le: {new Date(app.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -511,7 +715,10 @@ export default function StudentDashboard() {
           {activeTab === "profile" && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-800">Mon profil</h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Mon profil</h2>
+                  <p className="text-gray-500 mt-1">Gérez vos informations personnelles</p>
+                </div>
                 <div className="flex gap-3">
                   {(!profile?.location || !profile?.skills) && (
                     <button onClick={() => navigate("/dashboard/CompleteProfile")} className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition">
@@ -546,7 +753,9 @@ export default function StudentDashboard() {
                       <p className="text-sm text-orange-600">Complétez votre profil pour augmenter vos chances de trouver un stage</p>
                     </div>
                   </div>
-                  <button onClick={() => navigate("/dashboard/CompleteProfile")} className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm">Compléter maintenant</button>
+                  <button onClick={() => navigate("/dashboard/CompleteProfile")} className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm">
+                    Compléter maintenant
+                  </button>
                 </div>
               )}
 
@@ -577,106 +786,191 @@ export default function StudentDashboard() {
                     </div>
                   </div>
 
-                  <div className="mb-8">
-                    <h4 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Informations personnelles</h4>
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faPhone} className="mr-2 text-[#16A34A]" /> Téléphone</label>
-                        {isEditing ? (
-                          <input value={editedUser.contact || ""} onChange={(e) => setEditedUser({ ...editedUser, contact: e.target.value })} className="w-full border rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#16A34A]" />
-                        ) : (
-                          <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{user?.contact || 'Non renseigné'}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1"><FaMapMarkerAltIcon className="inline mr-2 text-[#16A34A]" size={14} /> Localisation</label>
-                        {isEditing ? (
-                          <input value={editedProfile.location || ""} onChange={(e) => setEditedProfile({ ...editedProfile, location: e.target.value })} className="w-full border rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#16A34A]" placeholder="Ex: Douala, Cameroun" />
-                        ) : (
-                          <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.location || 'Non renseigné'}</p>
-                        )}
-                      </div>
-                      <div>
-         <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faUniversity} className="mr-2 text-[#16A34A]" /> Université</label>
-                        <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.university || 'Non renseigné'}</p>
-                      </div>
-                      <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faBook} className="mr-2 text-[#16A34A]" /> Département</label>
-                        <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.department || 'Non renseigné'}</p>
-                      </div>
-                      <div>
-     <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faGraduationCap} className="mr-2 text-[#16A34A]" /> Cours</label>
-                        <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.course || 'Non renseigné'}</p>
-                      </div>
-                      <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faCalendarAlt} className="mr-2 text-[#16A34A]" /> Année</label>
-                        <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.year || 'Non renseigné'}</p>
-                      </div>
-                      <div>
-                       <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faIdCard} className="mr-2 text-[#16A34A]" /> Numéro étudiant</label>
-                        <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.student_id || 'Non renseigné'}</p>
-                      </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <FontAwesomeIcon icon={faPhone} className="mr-2 text-[#16A34A]" /> Téléphone
+                      </label>
+                      {isEditing ? (
+                        <input value={editedUser.contact || ""} onChange={(e) => setEditedUser({ ...editedUser, contact: e.target.value })} className="w-full border rounded-xl px-3 py-2" />
+                      ) : (
+                        <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{user?.contact || 'Non renseigné'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1"><FaMapMarkerAltIcon className="inline mr-2 text-[#16A34A]" /> Localisation</label>
+                      {isEditing ? (
+                        <input value={editedProfile.location || ""} onChange={(e) => setEditedProfile({ ...editedProfile, location: e.target.value })} className="w-full border rounded-xl px-3 py-2" />
+                      ) : (
+                        <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.location || 'Non renseigné'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faUniversity} className="mr-2 text-[#16A34A]" /> Université</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.university || 'Non renseigné'}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faBook} className="mr-2 text-[#16A34A]" /> Département</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.department || 'Non renseigné'}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faGraduationCap} className="mr-2 text-[#16A34A]" /> Cours</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.course || 'Non renseigné'}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faCalendarAlt} className="mr-2 text-[#16A34A]" /> Année</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.year || 'Non renseigné'}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1"><FontAwesomeIcon icon={faIdCard} className="mr-2 text-[#16A34A]" /> Numéro étudiant</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.student_id || 'Non renseigné'}</p>
                     </div>
                   </div>
-
-                  {(profile?.location || profile?.skills) && (
-                    <>
-                      <div className="mb-8">
-                        <h4 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Préférences professionnelles</h4>
-                        <div className="grid md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Type de stage</label>
-                            <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.internship_type === 'professionnel' ? 'Stage Professionnel' : profile?.internship_type === 'academique' ? 'Stage Académique' : 'Non renseigné'}</p>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Mode de travail</label>
-                            <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.preferred_work_type === 'remote' ? 'Remote' : profile?.preferred_work_type === 'onsite' ? 'Sur site' : profile?.preferred_work_type === 'hybrid' ? 'Hybride' : 'Non renseigné'}</p>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Durée préférée</label>
-                            <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.preferred_duration_min && profile?.preferred_duration_max ? `${profile.preferred_duration_min} - ${profile.preferred_duration_max} mois` : 'Non renseigné'}</p>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Langues</label>
-                            <p className="text-gray-900 bg-gray-50 p-3 rounded-xl">{profile?.languages || 'Non renseigné'}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mb-8">
-                        <h4 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Compétences</h4>
-                        <div className="bg-gray-50 p-3 rounded-xl">
-                          {profile?.skills ? (
-                            <div className="flex flex-wrap gap-2">{profile.skills.split(',').map((skill, i) => (<span key={i} className="px-2 py-1 bg-green-100 text-[#16A34A] rounded-lg text-sm">{skill.trim()}</span>))}</div>
-                          ) : <p className="text-gray-500">Non renseigné</p>}
-                        </div>
-                      </div>
-
-                      {profile?.bio && (
-                        <div className="mb-8">
-                          <h4 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Bio</h4>
-                          <p className="text-gray-700 bg-gray-50 p-3 rounded-xl">{profile.bio}</p>
-                        </div>
-                      )}
-
-                      {(profile?.linkedin_url || profile?.github_url || profile?.portfolio_url) && (
-                        <div className="mb-8">
-                          <h4 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Liens professionnels</h4>
-                          <div className="space-y-3">
-                            {profile?.linkedin_url && <div className="flex items-center gap-3"><FaLinkedin className="text-[#0077b5] text-xl" /><a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-[#16A34A] hover:underline">{profile.linkedin_url}</a></div>}
-                            {profile?.github_url && <div className="flex items-center gap-3"><FaGithub className="text-gray-800 text-xl" /><a href={profile.github_url} target="_blank" rel="noopener noreferrer" className="text-[#16A34A] hover:underline">{profile.github_url}</a></div>}
-                            {profile?.portfolio_url && <div className="flex items-center gap-3"><FaGlobe className="text-[#16A34A] text-xl" /><a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer" className="text-[#16A34A] hover:underline">{profile.portfolio_url}</a></div>}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
                 </div>
               </div>
             </div>
           )}
         </div>
       </main>
+
+      {/* Internship Details Modal */}
+      {showDetailModal && selectedInternshipDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-800">Détails du stage</h2>
+              <button onClick={() => setShowDetailModal(false)} className="text-gray-400 hover:text-gray-600">
+                <FontAwesomeIcon icon={faTimes} className="text-xl" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Header */}
+              <div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">{selectedInternshipDetail.title}</h3>
+                <div className="flex flex-wrap gap-4 text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <FontAwesomeIcon icon={faBuilding} className="text-green-600" />
+                    <span>{selectedInternshipDetail.organization?.organisation_name}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <FaMapMarkerAltIcon className="text-green-600" />
+                    <span>{selectedInternshipDetail.location}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Badge */}
+              <div>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  selectedInternshipDetail.status === 'open' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {selectedInternshipDetail.status === 'open' ? 'Stage actif' : 'Stage fermé'}
+                </span>
+              </div>
+
+              {/* Quick Info Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 rounded-xl p-4">
+                <div className="text-center">
+                  <FontAwesomeIcon icon={faClock} className="text-green-600 mx-auto mb-1" />
+                  <p className="text-xs text-gray-500">Durée</p>
+                  <p className="font-semibold">{selectedInternshipDetail.duration}</p>
+                </div>
+                <div className="text-center">
+                  <FontAwesomeIcon icon={faCalendarAlt} className="text-green-600 mx-auto mb-1" />
+                  <p className="text-xs text-gray-500">Période</p>
+                  <p className="font-semibold text-sm">
+                    {new Date(selectedInternshipDetail.start_date).toLocaleDateString()} - {new Date(selectedInternshipDetail.end_date).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <FontAwesomeIcon icon={faGraduationCap} className="text-green-600 mx-auto mb-1" />
+                  <p className="text-xs text-gray-500">Type</p>
+                  <p className="font-semibold">
+                    {selectedInternshipDetail.internship_type === 'professionnel' ? 'Stage Professionnel' : 'Stage Académique'}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <FontAwesomeIcon icon={faMoneyBillWave} className="text-green-600 mx-auto mb-1" />
+                  <p className="text-xs text-gray-500">Rémunération</p>
+                  <p className="font-semibold">
+                    {selectedInternshipDetail.payment_type === 'paid' 
+                      ? `${selectedInternshipDetail.salary?.toLocaleString()} FCFA/mois` 
+                      : 'Stage non payé'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-2">Description du poste</h4>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-gray-700 whitespace-pre-wrap">{selectedInternshipDetail.description}</p>
+                </div>
+              </div>
+
+              {/* Requirements */}
+              {selectedInternshipDetail.requirements && (
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">Prérequis & Compétences requises</h4>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-gray-700 whitespace-pre-wrap">{selectedInternshipDetail.requirements}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Benefits */}
+              {selectedInternshipDetail.benefits && (
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">Avantages</h4>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-gray-700 whitespace-pre-wrap">{selectedInternshipDetail.benefits}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Info */}
+              <div className="grid md:grid-cols-2 gap-4 bg-blue-50 rounded-xl p-4">
+                <div>
+                  <p className="text-sm text-gray-600">📊 Nombre de places</p>
+                  <p className="font-semibold text-gray-800">{selectedInternshipDetail.slots} place(s) disponible(s)</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">📅 Date de publication</p>
+                  <p className="font-semibold text-gray-800">{new Date(selectedInternshipDetail.created_at).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">🎓 Département cible</p>
+                  <p className="font-semibold text-gray-800">{selectedInternshipDetail.department || 'Non spécifié'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">📍 Localisation</p>
+                  <p className="font-semibold text-gray-800">{selectedInternshipDetail.location}</p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    navigate(`/internships/${selectedInternshipDetail.id}`);
+                  }}
+                  className="flex-1 text-center px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-semibold"
+                >
+                  <FontAwesomeIcon icon={faPaperPlane} className="mr-2" /> Postuler maintenant
+                </button>
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition"
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

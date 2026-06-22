@@ -6,7 +6,7 @@ import {
   FaBuilding, FaMapMarkerAlt, FaGlobe, FaUsers, FaCalendarAlt,
   FaUser, FaEnvelope, FaPhone, FaBriefcase, FaCheckCircle, 
   FaArrowRight, FaArrowLeft, FaCamera, FaSpinner, FaSave,
-  FaLinkedin, FaTwitter, FaFacebook, FaInstagram, FaYoutube,
+  FaLinkedin, FaTwitter, FaFacebook, FaInstagram,
   FaFileAlt, FaChartLine, FaBullhorn, FaHandshake
 } from "react-icons/fa";
 
@@ -148,12 +148,11 @@ export default function CompleteOrgProfile() {
     }
   };
 
-  const uploadLogo = async (orgId: number): Promise<string | null> => {
+  const uploadLogo = async (): Promise<string | null> => {
     if (!logo) return null;
     
     const uploadData = new FormData();
     uploadData.append('logo', logo);
-    uploadData.append('organization_id', orgId.toString());
     
     try {
       const token = localStorage.getItem('token');
@@ -197,9 +196,13 @@ export default function CompleteOrgProfile() {
     
     try {
       const token = localStorage.getItem('token');
-      const userStr = localStorage.getItem('user');
-      const user = userStr ? JSON.parse(userStr) : null;
       
+      // First upload logo if exists
+      if (logo) {
+        await uploadLogo();
+      }
+      
+      // Then complete profile
       const response = await fetch('http://localhost:8000/api/organization/profile/complete', {
         method: 'POST',
         headers: {
@@ -209,7 +212,7 @@ export default function CompleteOrgProfile() {
         body: JSON.stringify({
           sector: formData.sector,
           company_size: formData.company_size,
-          founded_year: formData.founded_year,
+          founded_year: formData.founded_year ? parseInt(formData.founded_year) : null,
           website: formData.website,
           mission_statement: formData.mission_statement,
           recruitment_email: formData.recruitment_email,
@@ -228,10 +231,6 @@ export default function CompleteOrgProfile() {
       const data = await response.json();
       
       if (response.ok) {
-        if (logo && user?.id) {
-          await uploadLogo(user.id);
-        }
-        
         Swal.fire({
           icon: "success",
           title: "Profil complété !",
@@ -367,12 +366,13 @@ export default function CompleteOrgProfile() {
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <FaBriefcase className="inline mr-2 text-[#16A34A]" size={14} />
-                        Secteur d'activité
+                        Secteur d'activité *
                       </label>
                       <select 
                         name="sector" 
                         value={formData.sector} 
                         onChange={handleChange}
+                        required
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition bg-white"
                       >
                         <option value="">Sélectionnez votre secteur</option>
@@ -383,12 +383,13 @@ export default function CompleteOrgProfile() {
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <FaUsers className="inline mr-2 text-[#16A34A]" size={14} />
-                        Taille de l'entreprise
+                        Taille de l'entreprise *
                       </label>
                       <select 
                         name="company_size" 
                         value={formData.company_size} 
                         onChange={handleChange}
+                        required
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition bg-white"
                       >
                         <option value="">Sélectionnez la taille</option>
@@ -430,11 +431,12 @@ export default function CompleteOrgProfile() {
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <FaFileAlt className="inline mr-2 text-[#16A34A]" size={14} />
-                        Description de l'entreprise
+                        Description de l'entreprise *
                       </label>
                       <textarea 
                         name="description" 
                         rows={4}
+                        required
                         placeholder="Présentez votre entreprise, ses valeurs, ses activités principales..." 
                         value={formData.description} 
                         onChange={handleChange} 
@@ -474,11 +476,12 @@ export default function CompleteOrgProfile() {
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <FaEnvelope className="inline mr-2 text-[#16A34A]" size={14} />
-                        Email de recrutement
+                        Email de recrutement *
                       </label>
                       <input 
                         type="email" 
                         name="recruitment_email" 
+                        required
                         placeholder="recrutement@votreentreprise.com" 
                         value={formData.recruitment_email} 
                         onChange={handleChange} 
@@ -490,11 +493,12 @@ export default function CompleteOrgProfile() {
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <FaUser className="inline mr-2 text-[#16A34A]" size={14} />
-                        Personne de contact
+                        Personne de contact *
                       </label>
                       <input 
                         type="text" 
                         name="contact_person_name" 
+                        required
                         placeholder="Nom du responsable recrutement" 
                         value={formData.contact_person_name} 
                         onChange={handleChange} 
@@ -505,11 +509,12 @@ export default function CompleteOrgProfile() {
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <FaBriefcase className="inline mr-2 text-[#16A34A]" size={14} />
-                        Fonction du contact
+                        Fonction du contact *
                       </label>
                       <input 
                         type="text" 
                         name="contact_person_role" 
+                        required
                         placeholder="Ex: Responsable RH, Directeur des stages" 
                         value={formData.contact_person_role} 
                         onChange={handleChange} 

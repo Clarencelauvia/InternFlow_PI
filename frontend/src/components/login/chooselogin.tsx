@@ -3,11 +3,11 @@ import { Link } from "react-router-dom";
 import { 
   FaGraduationCap, FaBuilding, FaArrowRight, 
   FaBars, FaTimes, FaLock, FaShieldAlt,
-  FaUserCheck, FaCheckCircle
+  FaUserCheck, FaCheckCircle, FaUniversity
 } from "react-icons/fa";
 
 export default function ChoixConnexion() {
-  const [selected, setSelected] = useState<"student" | "org" | null>(null);
+  const [selected, setSelected] = useState<"student" | "org" | "university" | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const options = [
@@ -40,6 +40,21 @@ export default function ChoixConnexion() {
         "Analyser vos recrutements"
       ],
       stats: "200+ entreprises partenaires"
+    },
+    {
+      id: "university",
+      title: "Université / Institution",
+      desc: "Gérez vos conventions de stage, suivez vos étudiants et accréditez des entreprises.",
+      icon: <FaUniversity size={32} />,
+      link: "/login/universitylogin",
+      color: "from-indigo-500 to-indigo-600",
+      features: [
+        "Gérer les conventions",
+        "Suivre les étudiants en stage",
+        "Accréditer des entreprises",
+        "Analyser les placements"
+      ],
+      stats: "50+ universités partenaires"
     },
   ];
 
@@ -77,7 +92,7 @@ export default function ChoixConnexion() {
 
       {/* Main */}
       <main className="pt-28 pb-20 px-4 flex justify-center items-center">
-        <div className="w-full max-w-4xl">
+        <div className="w-full max-w-6xl">
 
           {/* Header */}
           <div className="text-center mb-12">
@@ -94,7 +109,7 @@ export default function ChoixConnexion() {
           </div>
 
           {/* Cards */}
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-3 gap-8">
             {options.map((opt, index) => (
               <div
                 key={opt.id}
