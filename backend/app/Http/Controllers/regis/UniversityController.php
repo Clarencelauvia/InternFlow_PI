@@ -28,11 +28,13 @@ class UniversityController extends Controller
             return response()->json(['error' => 'University profile not found'], 404);
         }
         
-        $departmentNames = $university->departments->pluck('name')->toArray();
-        
-        // Get students from this university
-        $students = StudentProfile::whereIn('department', $departmentNames)
-            ->orWhere('university', $university->university_name)
+        // Get confirmed students from this university (same definition as
+        // the "Étudiants" tab — pending students aren't part of the roster
+        // yet, and matching by department name alone used to leak in
+        // students from other universities that happen to share a
+        // department label).
+        $students = StudentProfile::where('university_id', $university->id)
+            ->where('university_status', 'confirmed')
             ->get();
         
         // Get internships posted by companies in this university's region
@@ -65,11 +67,9 @@ class UniversityController extends Controller
             return response()->json(['error' => 'University profile not found'], 404);
         }
         
-        $departmentNames = $university->departments->pluck('name')->toArray();
-        
         $students = StudentProfile::with('user')
-            ->whereIn('department', $departmentNames)
-            ->orWhere('university', $university->university_name)
+            ->where('university_id', $university->id)
+            ->where('university_status', 'confirmed')
             ->latest()
             ->paginate(20);
         
@@ -204,11 +204,9 @@ class UniversityController extends Controller
             return response()->json(['error' => 'University profile not found'], 404);
         }
         
-        $departmentNames = $university->departments->pluck('name')->toArray();
-        
         $query = StudentProfile::with('user')
-            ->whereIn('department', $departmentNames)
-            ->orWhere('university', $university->university_name);
+            ->where('university_id', $university->id)
+            ->where('university_status', 'confirmed');
         
         // Search filter
         if ($request->has('search') && $request->search) {
@@ -228,12 +226,15 @@ class UniversityController extends Controller
         
         $students = $query->latest()->get();
         
-        // Add applications and internships count
+        // Add applications/internships counts and resolve storage paths into
+        // full URLs (raw paths aren't directly usable by the frontend)
         foreach ($students as $student) {
             $student->applications_count = Application::where('student_id', $student->user_id)->count();
             $student->internships_count = Application::where('student_id', $student->user_id)
                 ->where('status', 'accepted')
                 ->count();
+            $student->profile_picture_url = $student->profile_picture ? asset('storage/' . $student->profile_picture) : null;
+            $student->resume_url = $student->resume_path ? asset('storage/' . $student->resume_path) : null;
         }
         
         return response()->json($students);
@@ -279,6 +280,9 @@ class UniversityController extends Controller
             StudentProfile::create([
                 'user_id' => $user->id,
                 'university' => $university->university_name,
+                'university_id' => $university->id,
+                'university_status' => 'confirmed',
+                'university_confirmed_at' => now(),
                 'department' => $request->department ?? '',
                 'course' => $request->course ?? '',
                 'year' => $request->year ?? '',
@@ -312,7 +316,7 @@ class UniversityController extends Controller
         $studentProfile = StudentProfile::with('user')->findOrFail($id);
         
         // Verify student belongs to this university
-        if ($studentProfile->university !== $university->university_name) {
+        if ($studentProfile->university_id !== $university->id) {
             return response()->json(['error' => 'Student does not belong to your university'], 403);
         }
         
@@ -373,11 +377,9 @@ class UniversityController extends Controller
             return response()->json(['error' => 'University profile not found'], 404);
         }
         
-        $departmentNames = $university->departments->pluck('name')->toArray();
-        
-        // Get all student IDs from this university
-        $studentIds = StudentProfile::whereIn('department', $departmentNames)
-            ->orWhere('university', $university->university_name)
+        // Get all confirmed student IDs from this university
+        $studentIds = StudentProfile::where('university_id', $university->id)
+            ->where('university_status', 'confirmed')
             ->pluck('user_id');
         
         $query = Application::with(['student', 'internship', 'internship.organization'])
@@ -433,11 +435,9 @@ class UniversityController extends Controller
             return response()->json(['error' => 'University profile not found'], 404);
         }
         
-        $departmentNames = $university->departments->pluck('name')->toArray();
-        
-        // Get student IDs
-        $studentIds = StudentProfile::whereIn('department', $departmentNames)
-            ->orWhere('university', $university->university_name)
+        // Get confirmed student IDs
+        $studentIds = StudentProfile::where('university_id', $university->id)
+            ->where('university_status', 'confirmed')
             ->pluck('user_id');
         
         // Applications by status
@@ -466,7 +466,10 @@ class UniversityController extends Controller
         $placementValues = [];
         
         foreach ($departments as $dept) {
-            $deptStudentIds = StudentProfile::where('department', $dept)->pluck('user_id');
+            $deptStudentIds = StudentProfile::where('university_id', $university->id)
+                ->where('university_status', 'confirmed')
+                ->where('department', $dept)
+                ->pluck('user_id');
             $placedCount = Application::whereIn('student_id', $deptStudentIds)
                 ->where('status', 'accepted')
                 ->count();
@@ -561,6 +564,7 @@ class UniversityController extends Controller
         }
         
         $validator = Validator::make($request->all(), [
+            'university_name' => 'nullable|string|max:255',
             'location' => 'nullable|string|max:255',
             'website' => 'nullable|url|max:255',
             'description' => 'nullable|string',
@@ -575,7 +579,7 @@ class UniversityController extends Controller
         
         try {
             $university->update($request->only([
-                'location', 'website', 'description', 'established_year', 
+                'university_name', 'location', 'website', 'description', 'established_year', 
                 'vice_chancellor', 'type'
             ]));
             
@@ -611,7 +615,10 @@ class UniversityController extends Controller
         $stats = [];
         
         foreach ($departments as $dept) {
-            $studentIds = StudentProfile::where('department', $dept)->pluck('user_id');
+            $studentIds = StudentProfile::where('university_id', $university->id)
+                ->where('university_status', 'confirmed')
+                ->where('department', $dept)
+                ->pluck('user_id');
             $totalStudents = count($studentIds);
             $placedStudents = Application::whereIn('student_id', $studentIds)
                 ->where('status', 'accepted')
@@ -650,7 +657,7 @@ class UniversityController extends Controller
         }
         
         // Verify student belongs to this university
-        if ($studentProfile->university !== $university->university_name) {
+        if ($studentProfile->university_id !== $university->id) {
             return response()->json(['error' => 'Student does not belong to your university'], 403);
         }
         
@@ -667,5 +674,213 @@ class UniversityController extends Controller
             ->get();
         
         return response()->json($studentProfile);
+    }
+
+    // ============ NEW: STUDENT CONFIRMATION FLOW ============
+
+    /**
+     * Public endpoint: list verified (registered) universities for the
+     * student registration dropdown. No auth required.
+     */
+    public static function verifiedUniversities()
+    {
+        $universities = \App\Models\UniversityProfile::query()
+            ->select('id', 'university_name', 'city', 'location')
+            ->orderBy('university_name')
+            ->get();
+
+        return response()->json($universities);
+    }
+
+    /**
+     * Link any students who registered by typing this university's name as
+     * free text (the old/legacy flow) but were never linked through
+     * university_id — without this, those students are permanently invisible
+     * to studentsByStatus()/confirmStudent()/rejectStudent(), even though
+     * they show up fine in myStudents()/getAllStudents() (which still match
+     * on the free-text `university` column). Only touches rows that are
+     * currently unlinked AND have no status yet, so it never overwrites a
+     * student who was already confirmed/rejected through some other path.
+     */
+    private function backfillUniversityLinks($university): void
+    {
+        // 'none' is the default registerStudent() assigns to ANY student who
+        // didn't pick a university at sign-up (see AuthController) — it's
+        // not exclusively a "was rejected" marker, even though rejectStudent()
+        // also writes 'none'. We match it here too so existing/legacy
+        // students actually show up in the confirmation queue.
+        StudentProfile::whereNull('university_id')
+            ->where(function ($q) {
+                $q->whereNull('university_status')
+                  ->orWhere('university_status', '')
+                  ->orWhere('university_status', 'none');
+            })
+            ->whereRaw('LOWER(TRIM(university)) = ?', [
+                mb_strtolower(trim($university->university_name))
+            ])
+            ->update([
+                'university_id' => $university->id,
+                'university_status' => 'pending',
+            ]);
+    }
+
+    /**
+     * List the current university's students by confirmation status.
+     * Query params:
+     *   ?status=pending|confirmed|rejected|all (default: pending)
+     *   ?search=...
+     */
+    public function studentsByStatus(Request $request)
+    {
+        try {
+            $university = $request->user()->universityProfile;
+
+            if (!$university) {
+                return response()->json(['error' => 'University profile not found'], 404);
+            }
+
+            $this->backfillUniversityLinks($university);
+
+            $status = $request->query('status', 'pending');
+            $search = $request->query('search');
+
+            $query = StudentProfile::with('user')
+                ->where('university_id', $university->id);
+
+            if (in_array($status, ['pending', 'confirmed', 'rejected'], true)) {
+                $query->where('university_status', $status);
+            } // 'all' = no status filter
+
+            if ($search) {
+                $query->whereHas('user', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%");
+                });
+            }
+
+            $students = $query->latest()->get()->map(function ($sp) {
+                return [
+                    'id' => $sp->id,
+                    'user_id' => $sp->user_id,
+                    'name' => $sp->user?->name,
+                    'email' => $sp->user?->email,
+                    'phone' => $sp->user?->contact,
+                    'student_id' => $sp->student_id,
+                    'department' => $sp->department,
+                    'course' => $sp->course,
+                    'year' => $sp->year,
+                    'skills' => $sp->skills,
+                    'languages' => $sp->languages,
+                    'experience' => $sp->experience,
+                    'bio' => $sp->bio,
+                    'location' => $sp->location,
+                    'preferred_work_type' => $sp->preferred_work_type,
+                    'internship_type' => $sp->internship_type,
+                    'guardian_name' => $sp->guardian_name,
+                    'guardian_contact' => $sp->guardian_contact,
+                    'profile_picture_url' => $sp->profile_picture ? asset('storage/' . $sp->profile_picture) : null,
+                    'resume_url' => $sp->resume_path ? asset('storage/' . $sp->resume_path) : null,
+                    'linkedin_url' => $sp->linkedin_url,
+                    'github_url' => $sp->github_url,
+                    'portfolio_url' => $sp->portfolio_url,
+                    'university_status' => $sp->university_status,
+                    'university_confirmed_at' => $sp->university_confirmed_at,
+                    'registered_at' => $sp->created_at,
+                ];
+            });
+
+            return response()->json($students);
+        } catch (\Exception $e) {
+            Log::error('Error listing university students: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch students'], 500);
+        }
+    }
+
+    /**
+     * Confirm a pending student belongs to this university.
+     */
+    public function confirmStudent(Request $request, $id)
+    {
+        try {
+            $university = $request->user()->universityProfile;
+
+            if (!$university) {
+                return response()->json(['error' => 'University profile not found'], 404);
+            }
+
+            $sp = StudentProfile::find($id);
+
+            if (!$sp || $sp->university_id !== $university->id) {
+                return response()->json(['error' => 'Student not found or not linked to your university'], 404);
+            }
+
+            if ($sp->university_status === 'confirmed') {
+                return response()->json(['message' => 'Already confirmed']);
+            }
+
+            $sp->university_status = 'confirmed';
+            $sp->university_confirmed_at = now();
+            $sp->save();
+
+            // Notify the student
+            if ($sp->user_id) {
+                \App\Models\UserNotification::create([
+                    'user_id' => $sp->user_id,
+                    'type' => 'university_confirmed',
+                    'title' => 'Université confirmée',
+                    'message' => "Votre université ({$university->university_name}) a confirmé votre profil. Vos candidatures porteront désormais un badge « Vérifié ».",
+                    'data' => ['university_id' => $university->id],
+                ]);
+            }
+
+            return response()->json(['message' => 'Student confirmed', 'student' => $sp]);
+        } catch (\Exception $e) {
+            Log::error('Error confirming student: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to confirm student'], 500);
+        }
+    }
+
+    /**
+     * Reject a pending student — auto-downgrades them to free-text:
+     * keeps the university name string but clears university_id and resets status to 'none'.
+     */
+    public function rejectStudent(Request $request, $id)
+    {
+        try {
+            $university = $request->user()->universityProfile;
+
+            if (!$university) {
+                return response()->json(['error' => 'University profile not found'], 404);
+            }
+
+            $sp = StudentProfile::find($id);
+
+            if (!$sp || $sp->university_id !== $university->id) {
+                return response()->json(['error' => 'Student not found or not linked to your university'], 404);
+            }
+
+            // Soft downgrade: cut the link but keep the typed university string + the user account
+            $universityNameSnapshot = $university->university_name;
+            $sp->university_id = null;
+            $sp->university_status = 'none';
+            $sp->university_confirmed_at = null;
+            $sp->save();
+
+            // Notify the student
+            if ($sp->user_id) {
+                \App\Models\UserNotification::create([
+                    'user_id' => $sp->user_id,
+                    'type' => 'university_rejected',
+                    'title' => 'Université non confirmée',
+                    'message' => "L'université « {$universityNameSnapshot} » n'a pas confirmé votre profil. Vous pouvez continuer à utiliser la plateforme normalement; pour relier votre compte, sélectionnez à nouveau une université dans votre profil.",
+                    'data' => ['university_id' => $university->id],
+                ]);
+            }
+
+            return response()->json(['message' => 'Student rejected and unlinked']);
+        } catch (\Exception $e) {
+            Log::error('Error rejecting student: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to reject student'], 500);
+        }
     }
 }

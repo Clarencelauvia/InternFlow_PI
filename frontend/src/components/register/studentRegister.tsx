@@ -33,6 +33,7 @@ export default function StudentRegistration() {
     password: "",
     confirmPassword: "",
     university: "",
+    university_id: "",
     department: "",
     course: "",
     year: "",
@@ -42,6 +43,17 @@ export default function StudentRegistration() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Verified universities loaded from the API (for the dropdown)
+  const [verifiedUniversities, setVerifiedUniversities] = useState<Array<{ id: number; university_name: string; city?: string | null }>>([]);
+  const [universityNotListed, setUniversityNotListed] = useState(false);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/api/universities/verified")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setVerifiedUniversities(Array.isArray(data) ? data : []))
+      .catch(() => setVerifiedUniversities([]));
+  }, []);
 
   const departments = [
     "Informatique & Technologies",
@@ -324,6 +336,7 @@ export default function StudentRegistration() {
           password: formData.password,
           password_confirmation: formData.confirmPassword,
           university: formData.university,
+          university_id: formData.university_id ? Number(formData.university_id) : null,
           department: formData.department,
           course: formData.course,
           year: formData.year,
@@ -662,14 +675,65 @@ export default function StudentRegistration() {
                         <FaUniversity className="inline mr-2 text-[#16A34A]" size={14} />
                         Université / École *
                       </label>
-                      <input 
-                        type="text" 
-                        name="university" 
-                        placeholder="Ex: ESBAFIM" 
-                        value={formData.university} 
-                        onChange={handleChange} 
-                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
-                      />
+
+                      {!universityNotListed ? (
+                        <>
+                          <select
+                            value={formData.university_id}
+                            onChange={(e) => {
+                              const id = e.target.value;
+                              const match = verifiedUniversities.find((u) => String(u.id) === id);
+                              setFormData({
+                                ...formData,
+                                university_id: id,
+                                university: match ? match.university_name : ""
+                              });
+                            }}
+                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition bg-white"
+                          >
+                            <option value="">Sélectionnez votre université</option>
+                            {verifiedUniversities.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.university_name}{u.city ? ` — ${u.city}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUniversityNotListed(true);
+                              setFormData({ ...formData, university_id: "", university: "" });
+                            }}
+                            className="text-xs text-[#16A34A] hover:underline mt-2"
+                          >
+                            Mon université n'est pas dans la liste — saisir manuellement
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            name="university"
+                            placeholder="Ex: ESBAFIM"
+                            value={formData.university}
+                            onChange={handleChange}
+                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent transition"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUniversityNotListed(false);
+                              setFormData({ ...formData, university: "" });
+                            }}
+                            className="text-xs text-[#16A34A] hover:underline mt-2"
+                          >
+                            ← Choisir dans la liste des universités vérifiées
+                          </button>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Votre université n'étant pas encore inscrite sur InternFlow, vous ne recevrez pas le badge « Vérifié », mais toutes les autres fonctionnalités restent disponibles.
+                          </p>
+                        </>
+                      )}
                     </div>
                     
                    <div>

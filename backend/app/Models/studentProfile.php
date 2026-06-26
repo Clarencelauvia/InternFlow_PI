@@ -12,6 +12,9 @@ class StudentProfile extends Model
     protected $fillable = [
         'user_id',
         'university',
+        'university_id',
+        'university_status',
+        'university_confirmed_at',
         'department',
         'course',
         'year',
@@ -33,9 +36,19 @@ class StudentProfile extends Model
         'portfolio_url',
         'experience'
     ];
+
+    protected $casts = [
+        'university_confirmed_at' => 'datetime',
+    ];
+
        public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function university()
+    {
+        return $this->belongsTo(UniversityProfile::class, 'university_id');
     }
 
     public function applications()

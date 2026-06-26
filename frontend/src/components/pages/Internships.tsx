@@ -79,12 +79,33 @@ function formatDistance(km: number) {
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
 }
 
-// Recenters the map the first time the student's position becomes available
-function RecenterOnLocate({ position }: { position: [number, number] | null }) {
+// Controls the map view:
+//  - when a city search is active, frame the matching internships (recenter on that city)
+//  - otherwise fly to the student's location if known
+//  - otherwise frame whatever internships are mappable
+function MapFocus({
+  points,
+  userPosition,
+  cityActive
+}: {
+  points: [number, number][];
+  userPosition: [number, number] | null;
+  cityActive: boolean;
+}) {
   const map = useMap();
   useEffect(() => {
-    if (position) map.flyTo(position, 12);
-  }, [position, map]);
+    if (cityActive && points.length > 0) {
+      if (points.length === 1) {
+        map.setView(points[0], 13);
+      } else {
+        map.fitBounds(points, { padding: [50, 50], maxZoom: 14 });
+      }
+    } else if (userPosition) {
+      map.flyTo(userPosition, 12);
+    } else if (points.length > 0) {
+      map.fitBounds(points, { padding: [50, 50], maxZoom: 14 });
+    }
+  }, [points, userPosition, cityActive, map]);
   return null;
 }
 
@@ -96,14 +117,18 @@ interface CityOption {
 // Custom city autocomplete: free typing + styled suggestion list with counts,
 // keyboard navigation, click-to-select, and click-outside-to-close.
 // Looks identical across browsers (unlike the native <datalist>).
-function CityCombobox({
+function FilterCombobox({
   value,
   onChange,
-  options
+  options,
+  placeholder = "Rechercher...",
+  emptyText = "Aucun résultat"
 }: {
   value: string;
   onChange: (v: string) => void;
   options: CityOption[];
+  placeholder?: string;
+  emptyText?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
@@ -168,7 +193,7 @@ function CityCombobox({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Ex: Yaoundé, Douala..."
+          placeholder={placeholder}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-8 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
         />
         {value ? (
@@ -179,7 +204,7 @@ function CityCombobox({
               setOpen(false);
             }}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            aria-label="Effacer la ville"
+            aria-label="Effacer"
           >
             <FaTimes className="text-xs" />
           </button>
@@ -191,7 +216,7 @@ function CityCombobox({
       {open && (
         <ul className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
           {suggestions.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-gray-400">Aucune ville trouvée</li>
+            <li className="px-3 py-2 text-sm text-gray-400">{emptyText}</li>
           ) : (
             suggestions.map((o, idx) => (
               <li
@@ -278,18 +303,26 @@ export default function Internships() {
     );
   };
 
-  const departments = useMemo(
-    () => Array.from(new Set(internships.map((i) => i.department).filter(Boolean))) as string[],
-    [internships]
-  );
+  const departmentOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    internships.forEach((i) => {
+      if (i.department) counts[i.department] = (counts[i.department] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [internships]);
 
-  const organizations = useMemo(
-    () =>
-      Array.from(
-        new Set(internships.map((i) => i.organization?.organisation_name).filter(Boolean))
-      ) as string[],
-    [internships]
-  );
+  const organizationOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    internships.forEach((i) => {
+      const name = i.organization?.organisation_name;
+      if (name) counts[name] = (counts[name] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [internships]);
 
   // Unique cities (part of `location` before the first comma) with how many
   // internships each has — e.g. { name: "Yaoundé", count: 3 }. Feeds the combobox.
@@ -321,8 +354,8 @@ export default function Internships() {
 
       const matchesType = !filters.type || i.internship_type === filters.type;
       const matchesPayment = !filters.payment || i.payment_type === filters.payment;
-      const matchesDept = !filters.department || i.department === filters.department;
-      const matchesOrg = !filters.organization || i.organization?.organisation_name === filters.organization;
+      const matchesDept = !filters.department || (i.department || "").toLowerCase().includes(filters.department.toLowerCase());
+      const matchesOrg = !filters.organization || (i.organization?.organisation_name || "").toLowerCase().includes(filters.organization.toLowerCase());
 
       const matchesDuration =
         !filters.duration ||
@@ -482,38 +515,34 @@ export default function Internships() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Domaine / Département</label>
-                <select
+                <FilterCombobox
                   value={filters.department}
-                  onChange={(e) => setFilters({ ...filters, department: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
-                >
-                  <option value="">Tous</option>
-                  {departments.map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setFilters({ ...filters, department: v })}
+                  options={departmentOptions}
+                  placeholder="Ex: Informatique, Finance..."
+                  emptyText="Aucun département trouvé"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Entreprise</label>
-                <select
+                <FilterCombobox
                   value={filters.organization}
-                  onChange={(e) => setFilters({ ...filters, organization: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
-                >
-                  <option value="">Toutes</option>
-                  {organizations.map((o) => (
-                    <option key={o} value={o}>{o}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setFilters({ ...filters, organization: v })}
+                  options={organizationOptions}
+                  placeholder="Ex: CNPS, MTN..."
+                  emptyText="Aucune entreprise trouvée"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
-                <CityCombobox
+                <FilterCombobox
                   value={filters.city}
                   onChange={(v) => setFilters({ ...filters, city: v })}
                   options={cityOptions}
+                  placeholder="Ex: Yaoundé, Douala..."
+                  emptyText="Aucune ville trouvée"
                 />
               </div>
             </div>
@@ -559,7 +588,15 @@ export default function Internships() {
                   <div key={internship.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all p-6">
                     <div className="flex justify-between items-start gap-4">
                       <div className="flex-1">
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">{internship.title}</h3>
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <h3 className="text-xl font-bold text-gray-800">{internship.title}</h3>
+                          {internship.status === "closed" && (
+                            <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">Fermé</span>
+                          )}
+                          {internship.status === "in_progress" && (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">En cours</span>
+                          )}
+                        </div>
                         <div className="flex flex-wrap gap-4 mb-3 text-sm text-gray-600">
                           <span className="flex items-center gap-1">
                             <FaBuilding className="text-green-600" />
@@ -626,7 +663,11 @@ export default function Internships() {
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
-                    <RecenterOnLocate position={userPosition} />
+                    <MapFocus
+                      points={mappable.map((i) => [i.latitude as number, i.longitude as number])}
+                      userPosition={userPosition}
+                      cityActive={!!filters.city}
+                    />
 
                     {userPosition && (
                       <Marker position={userPosition} icon={userIcon}>

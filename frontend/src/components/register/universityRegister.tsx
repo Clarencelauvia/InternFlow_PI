@@ -313,11 +313,11 @@ export default function UniversityRegistration() {
         Swal.fire({
           icon: "success",
           title: "Inscription réussie",
-          text: "Votre compte universitaire a été créé avec succès. Vous allez être redirigé vers la page de connexion.",
+          text: "Votre compte universitaire a été créé. Un code de vérification a été envoyé à votre email. Vous allez être redirigé pour le saisir.",
           timer: 3000,
           showConfirmButton: true,
           willClose: () => {
-            window.location.href = "/login/universitylogin";
+            window.location.href = "/verifyEmail?email=" + encodeURIComponent(formData.adminEmail) + "&role=university";
           }
         });
       } else {

@@ -18,6 +18,7 @@ import Internships from './components/pages/Internships'
 import MyInternships from './components/adminDashboard/MyInternships'
 import UniversityDashboard from './components/dashboard/UnviersityDashboard/UniversityDashboard'
 import InternshipApplication from './components/pages/InternshipApplication'
+import NotificationBell from './components/adminDashboard/NotificationBell'
 function App() {
  
 
@@ -43,6 +44,7 @@ function App() {
         <Route path='/myinternships' element={<MyInternships />}/>
         <Route path='/dashboard/universityDashboard' element={<UniversityDashboard />}/>
         <Route path='/internships/:id' element={<InternshipApplication />}/>
+        <Route path='/notifications' element={<NotificationBell />}/>
       </Routes>
     </BrowserRouter>
     

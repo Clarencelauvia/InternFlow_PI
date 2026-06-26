@@ -340,7 +340,7 @@ const handleSubmit = async(e: React.SyntheticEvent<HTMLFormElement>) => {
         confirmButtonColor: "#16a34a",
         allowOutsideClick: false
       }).then(() => {
-        window.location.href = "/verifyEmail"; 
+        window.location.href = "/verifyEmail?email=" + encodeURIComponent(formData.officialEmail) + "&role=organization";
       });
     } else {
       console.error("Registration failed:", data);

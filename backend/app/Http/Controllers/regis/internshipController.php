@@ -10,13 +10,13 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 
-class internshipController extends Controller
+class InternshipController extends Controller
 {
     public function index(Request $request)
     {
         try {
             $query = Internship::with(['organization', 'organization.user'])
-                ->where('status', 'open');
+                ->where('status', '!=', 'archived');
 
             // Personalized filters for authenticated students
             if ($request->user() && $request->user()->role === 'student') {
@@ -105,7 +105,7 @@ class internshipController extends Controller
                 return response()->json(['errors' => $validator->errors()], 422);
             }
 
-            $organization = $request->user()->organizationProfile;
+            $organization = $request->user()->OrganizationProfile;
 
             if (!$organization) {
                 return response()->json(['error' => 'Organization profile not found'], 404);

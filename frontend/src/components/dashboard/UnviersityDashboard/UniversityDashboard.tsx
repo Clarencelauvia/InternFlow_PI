@@ -82,6 +82,7 @@ interface UniversityProfile {
 
 interface Student {
   id: number;
+  profile_id?: number;
   name: string;
   email: string;
   contact: string;
@@ -93,6 +94,20 @@ interface Student {
   created_at: string;
   applications_count?: number;
   internships_count?: number;
+  bio?: string | null;
+  skills?: string | null;
+  languages?: string | null;
+  experience?: string | null;
+  location?: string | null;
+  preferred_work_type?: string | null;
+  internship_type?: string | null;
+  guardian_name?: string | null;
+  guardian_contact?: string | null;
+  profile_picture_url?: string | null;
+  resume_url?: string | null;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  portfolio_url?: string | null;
 }
 
 interface Internship {
@@ -175,6 +190,14 @@ const StudentCard = ({ student, onViewDetails }: any) => (
         <p className="text-xs text-gray-500">Année</p>
         <p className="font-medium text-gray-700">{student.year || 'Non spécifiée'}</p>
       </div>
+      <div>
+        <p className="text-xs text-gray-500">Filière</p>
+        <p className="font-medium text-gray-700">{student.course || 'Non spécifiée'}</p>
+      </div>
+      <div>
+        <p className="text-xs text-gray-500">Contact</p>
+        <p className="font-medium text-gray-700">{student.contact || 'Non renseigné'}</p>
+      </div>
     </div>
     
     <div className="flex gap-2 pt-3 border-t">
@@ -248,6 +271,42 @@ export default function UniversityDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UniversityProfile | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+
+  // Student confirmation flow (Tier 1)
+  interface ConfirmCandidate {
+    id: number;
+    user_id: number;
+    name: string;
+    email: string;
+    phone?: string | null;
+    student_id?: string | null;
+    department?: string | null;
+    course?: string | null;
+    year?: string | null;
+    skills?: string | null;
+    languages?: string | null;
+    experience?: string | null;
+    bio?: string | null;
+    location?: string | null;
+    preferred_work_type?: string | null;
+    internship_type?: string | null;
+    guardian_name?: string | null;
+    guardian_contact?: string | null;
+    profile_picture_url?: string | null;
+    resume_url?: string | null;
+    linkedin_url?: string | null;
+    github_url?: string | null;
+    portfolio_url?: string | null;
+    university_status: 'pending' | 'confirmed' | 'rejected' | 'none';
+    university_confirmed_at?: string | null;
+    registered_at: string;
+  }
+  const [confirmCandidates, setConfirmCandidates] = useState<ConfirmCandidate[]>([]);
+  const [confirmSubTab, setConfirmSubTab] = useState<'pending' | 'confirmed' | 'rejected'>('pending');
+  const [pendingConfirmCount, setPendingConfirmCount] = useState(0);
+  const [loadingConfirm, setLoadingConfirm] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<ConfirmCandidate | null>(null);
+  const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [internships, setInternships] = useState<Internship[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -278,19 +337,24 @@ export default function UniversityDashboard() {
   const [years] = useState(["L1", "L2", "L3", "M1", "M2", "Doctorat"]);
 
   // Stats calculations
-  const stats = useMemo(() => ({
-    totalStudents: students.length,
-    totalInternships: internships.length,
-    totalApplications: applications.length,
-    profileCompletion: 0,
-    pendingApplications: applications.filter(a => a.status === "pending").length,
-    acceptedApplications: applications.filter(a => a.status === "accepted").length,
-    rejectedApplications: applications.filter(a => a.status === "rejected").length,
-    activeStudents: students.filter(s => s.status === "active").length,
-    placementRate: students.length > 0 
-      ? Math.round((students.filter(s => (s.internships_count || 0) > 0).length / students.length) * 100)
-      : 0
-  }), [students, internships, applications]);
+  const stats = useMemo(() => {
+    const sArr = Array.isArray(students) ? students : [];
+    const iArr = Array.isArray(internships) ? internships : [];
+    const aArr = Array.isArray(applications) ? applications : [];
+    return {
+      totalStudents: sArr.length,
+      totalInternships: iArr.length,
+      totalApplications: aArr.length,
+      profileCompletion: 0,
+      pendingApplications: aArr.filter(a => a.status === "pending").length,
+      acceptedApplications: aArr.filter(a => a.status === "accepted").length,
+      rejectedApplications: aArr.filter(a => a.status === "rejected").length,
+      activeStudents: sArr.filter(s => s.status === "active").length,
+      placementRate: sArr.length > 0
+        ? Math.round((sArr.filter(s => (s.internships_count || 0) > 0).length / sArr.length) * 100)
+        : 0
+    };
+  }, [students, internships, applications]);
 
   const [applicationStats, setApplicationStats] = useState<{
     monthly_trend: number[];
@@ -347,12 +411,12 @@ export default function UniversityDashboard() {
   const fetchUserData = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
-      navigate("/login/university");
+      navigate("/login/universitylogin");
       return;
     }
     
     try {
-      const response = await fetch("http://localhost:8000/api/university/students", {
+      const response = await fetch("http://localhost:8000/api/profile", {
         headers: { 
           "Authorization": `Bearer ${token}`,
           "Accept": "application/json"
@@ -361,6 +425,37 @@ export default function UniversityDashboard() {
       
       if (response.ok) {
         const data = await response.json();
+        setUser(data);
+        setProfile(data.university_profile);
+        setEditedProfile(data.university_profile || {});
+      } else if (response.status === 401) {
+        localStorage.clear();
+        navigate("/login/universitylogin");
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStudents = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      // Use /students/all (getAllStudents) instead of the paginated /students
+      // (myStudents) endpoint: the paginated one silently caps the list at 20
+      // students and was the reason not every student showed up here.
+      const response = await fetch("http://localhost:8000/api/university/students/all", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const raw = await response.json();
+        const data = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
+        // The API returns each student as a StudentProfile model with a nested
+        // `user` relation (name/email/contact/status live under `s.user`, not
+        // at the top level). Flatten it so the rest of the UI (StudentCard,
+        // the detail modal, search, "active students" stats, ...) can read
+        // student.name / student.email / student.status directly.
         const flattened: Student[] = data.map((s: any) => ({
           id: s.user_id ?? s.user?.id,
           profile_id: s.id,
@@ -375,31 +470,113 @@ export default function UniversityDashboard() {
           created_at: s.created_at,
           applications_count: s.applications_count,
           internships_count: s.internships_count,
+          bio: s.bio,
+          skills: s.skills,
+          languages: s.languages,
+          experience: s.experience,
+          location: s.location,
+          preferred_work_type: s.preferred_work_type,
+          internship_type: s.internship_type,
+          guardian_name: s.guardian_name,
+          guardian_contact: s.guardian_contact,
+          profile_picture_url: s.profile_picture_url,
+          resume_url: s.resume_url,
+          linkedin_url: s.linkedin_url,
+          github_url: s.github_url,
+          portfolio_url: s.portfolio_url,
         }));
         setStudents(flattened);
-      } else if (response.status === 401) {
-        localStorage.clear();
-        navigate("/login/university");
       }
     } catch (error) {
-      console.error("Error fetching user data:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching students:", error);
     }
   };
 
-  const fetchStudents = async () => {
+  const fetchConfirmCandidates = async (status: 'pending' | 'confirmed' | 'rejected') => {
     const token = localStorage.getItem("token");
+    setLoadingConfirm(true);
     try {
-      const response = await fetch("http://localhost:8000/api/university/students", {
+      const response = await fetch(`http://localhost:8000/api/university/students/by-status?status=${status}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
-        setStudents(data);
+        setConfirmCandidates(Array.isArray(data) ? data : []);
+        if (status === 'pending') setPendingConfirmCount(Array.isArray(data) ? data.length : 0);
+      } else {
+        setConfirmCandidates([]);
       }
     } catch (error) {
-      console.error("Error fetching students:", error);
+      console.error("Error fetching confirmation candidates:", error);
+      setConfirmCandidates([]);
+    } finally {
+      setLoadingConfirm(false);
+    }
+  };
+
+  const refreshPendingCount = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch("http://localhost:8000/api/university/students/by-status?status=pending", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPendingConfirmCount(Array.isArray(data) ? data.length : 0);
+      }
+    } catch (error) {
+      // silent
+    }
+  };
+
+  const confirmStudent = async (studentProfileId: number) => {
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch(`http://localhost:8000/api/university/students/${studentProfileId}/confirm`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        Swal.fire({ icon: "success", title: "Étudiant confirmé", timer: 1500, showConfirmButton: false });
+        await fetchConfirmCandidates(confirmSubTab);
+        await refreshPendingCount();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        Swal.fire({ icon: "error", title: "Erreur", text: data.error || "Impossible de confirmer cet étudiant." });
+      }
+    } catch (error) {
+      Swal.fire({ icon: "error", title: "Erreur réseau", text: "Impossible de contacter le serveur" });
+    }
+  };
+
+  const rejectStudent = async (studentProfileId: number, name: string) => {
+    const confirmed = await Swal.fire({
+      icon: "warning",
+      title: "Rejeter cet étudiant ?",
+      text: `${name} sera retiré de votre liste et son université redeviendra du texte libre. L'étudiant pourra à nouveau lier son compte plus tard.`,
+      showCancelButton: true,
+      confirmButtonText: "Rejeter",
+      cancelButtonText: "Annuler",
+      confirmButtonColor: "#dc2626"
+    });
+    if (!confirmed.isConfirmed) return;
+
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch(`http://localhost:8000/api/university/students/${studentProfileId}/reject`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        Swal.fire({ icon: "success", title: "Étudiant rejeté", timer: 1500, showConfirmButton: false });
+        await fetchConfirmCandidates(confirmSubTab);
+        await refreshPendingCount();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        Swal.fire({ icon: "error", title: "Erreur", text: data.error || "Impossible de rejeter cet étudiant." });
+      }
+    } catch (error) {
+      Swal.fire({ icon: "error", title: "Erreur réseau", text: "Impossible de contacter le serveur" });
     }
   };
 
@@ -411,7 +588,7 @@ export default function UniversityDashboard() {
       });
       if (response.ok) {
         const data = await response.json();
-        setInternships(data);
+        setInternships(Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []);
       }
     } catch (error) {
       console.error("Error fetching internships:", error);
@@ -426,7 +603,7 @@ export default function UniversityDashboard() {
       });
       if (response.ok) {
         const data = await response.json();
-        setApplications(data);
+        setApplications(Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []);
       }
     } catch (error) {
       console.error("Error fetching applications:", error);
@@ -451,7 +628,14 @@ export default function UniversityDashboard() {
     fetchInternships();
     fetchApplications();
     fetchApplicationStats();
+    refreshPendingCount();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'confirmations') {
+      fetchConfirmCandidates(confirmSubTab);
+    }
+  }, [activeTab, confirmSubTab]);
 
   const handleLogout = () => {
     Swal.fire({
@@ -473,7 +657,7 @@ export default function UniversityDashboard() {
           });
         }
         localStorage.clear();
-        navigate("/login/university");
+        navigate("/login/universitylogin");
       }
     });
   };
@@ -574,23 +758,31 @@ export default function UniversityDashboard() {
     setMessageBody(""); 
   };
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.student_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (student.department && student.department.toLowerCase().includes(searchTerm.toLowerCase()))
+  const studentsArr = Array.isArray(students) ? students : [];
+  const internshipsArr = Array.isArray(internships) ? internships : [];
+  const applicationsArr = Array.isArray(applications) ? applications : [];
+
+  // Null-safe substring match — treats null/undefined (on either side) as the empty string
+  const matches = (value: any, needle: any) =>
+    (value ?? "").toString().toLowerCase().includes((needle ?? "").toString().toLowerCase());
+
+  const filteredStudents = studentsArr.filter(student =>
+    matches(student.name, searchTerm) ||
+    matches(student.email, searchTerm) ||
+    matches(student.student_id, searchTerm) ||
+    matches(student.department, searchTerm)
   );
 
-  const filteredInternships = internships.filter(internship =>
-    internship.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    internship.organization_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    internship.location.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredInternships = internshipsArr.filter(internship =>
+    matches(internship.title, searchTerm) ||
+    matches(internship.organization_name, searchTerm) ||
+    matches(internship.location, searchTerm)
   );
 
-  const filteredApplications = applications.filter(app =>
-    app.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    app.internship_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    app.organization_name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredApplications = applicationsArr.filter(app =>
+    matches(app.student_name, searchTerm) ||
+    matches(app.student_email, searchTerm) ||
+    matches(app.internship_title, searchTerm)
   );
 
   if (loading) {
@@ -633,6 +825,16 @@ export default function UniversityDashboard() {
             {stats.totalStudents > 0 && (
               <span className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 bg-white/20 rounded-full text-xs flex items-center justify-center">
                 {stats.totalStudents}
+              </span>
+            )}
+          </button>
+          
+          <button onClick={() => setActiveTab("confirmations")} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition font-medium relative ${activeTab === "confirmations" ? "bg-white/20 backdrop-blur-sm" : "hover:bg-white/10"}`}>
+            <FontAwesomeIcon icon={faUserPlus} className="w-5" />
+            Confirmations
+            {pendingConfirmCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-5 w-5 bg-yellow-400 rounded-full text-xs flex items-center justify-center">
+                {pendingConfirmCount > 9 ? '9+' : pendingConfirmCount}
               </span>
             )}
           </button>
@@ -776,7 +978,7 @@ export default function UniversityDashboard() {
                   </button>
                 </div>
                 <div className="space-y-3">
-                  {students.slice(0, 3).map((student) => (
+                  {studentsArr.slice(0, 3).map((student) => (
                     <div key={student.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-xl hover:shadow transition">
                       <div>
                         <p className="font-medium text-gray-800">{student.name}</p>
@@ -790,7 +992,7 @@ export default function UniversityDashboard() {
                       </button>
                     </div>
                   ))}
-                  {students.length === 0 && (
+                  {studentsArr.length === 0 && (
                     <div className="text-center py-8 text-gray-500">
                       <FontAwesomeIcon icon={faUserGraduate} className="text-4xl mb-2 text-gray-300" />
                       <p>Aucun étudiant inscrit pour le moment</p>
@@ -845,6 +1047,122 @@ export default function UniversityDashboard() {
                       student={student}
                       onViewDetails={viewStudentDetails}
                     />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Confirmations Tab — Tier 1: confirm students who picked this university */}
+          {activeTab === "confirmations" && (
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Confirmations d'étudiants</h2>
+                  <p className="text-gray-500 mt-1">Confirmez ou rejetez les étudiants qui se sont inscrits sous votre université</p>
+                </div>
+              </div>
+
+              {/* Sub-tabs */}
+              <div className="flex gap-2 border-b">
+                {(['pending', 'confirmed', 'rejected'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setConfirmSubTab(s)}
+                    className={`px-4 py-2 font-medium text-sm transition border-b-2 ${confirmSubTab === s ? 'border-green-600 text-green-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                  >
+                    {s === 'pending' && <>À confirmer{pendingConfirmCount > 0 && <span className="ml-2 inline-block bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">{pendingConfirmCount}</span>}</>}
+                    {s === 'confirmed' && 'Mes étudiants'}
+                    {s === 'rejected' && 'Rejetés'}
+                  </button>
+                ))}
+              </div>
+
+              {/* List */}
+              {loadingConfirm ? (
+                <div className="text-center py-12 text-gray-400">
+                  <FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2" />
+                  <p>Chargement...</p>
+                </div>
+              ) : confirmCandidates.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 bg-white rounded-2xl shadow-sm">
+                  <FontAwesomeIcon icon={faUserGraduate} className="text-4xl mb-3" />
+                  <p className="font-medium">Aucun étudiant {confirmSubTab === 'pending' ? 'en attente' : confirmSubTab === 'confirmed' ? 'confirmé' : 'rejeté'}</p>
+                  {confirmSubTab === 'pending' && (
+                    <p className="text-sm mt-1">Les nouveaux étudiants qui s'inscriront en sélectionnant votre université apparaîtront ici.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {confirmCandidates.map((c) => (
+                    <div key={c.id} className="bg-white rounded-2xl shadow-sm p-5 flex flex-col md:flex-row gap-4 md:items-center">
+                      <div className="w-14 h-14 rounded-full bg-green-100 overflow-hidden flex items-center justify-center flex-shrink-0">
+                        {c.profile_picture_url ? (
+                          <img src={c.profile_picture_url} alt={c.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <FontAwesomeIcon icon={faUser} className="text-green-600 text-xl" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-gray-800">{c.name}</h3>
+                          {c.university_status === 'confirmed' && (
+                            <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">
+                              <FontAwesomeIcon icon={faCheckCircle} className="mr-1" /> Confirmé
+                            </span>
+                          )}
+                          {c.university_status === 'pending' && (
+                            <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">
+                              <FontAwesomeIcon icon={faClock} className="mr-1" /> En attente
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500 truncate">{c.email}</p>
+                        <div className="mt-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+                          {c.department && <span><FontAwesomeIcon icon={faGraduationCap} className="text-gray-400 mr-1" /> {c.department}</span>}
+                          {c.course && <span>{c.course}</span>}
+                          {c.year && <span>{c.year}</span>}
+                          {c.phone && <span><FontAwesomeIcon icon={faPhone} className="text-gray-400 mr-1" /> {c.phone}</span>}
+                        </div>
+                        {c.skills && (
+                          <p className="text-xs text-gray-500 mt-1 truncate">
+                            <span className="text-gray-400">Compétences : </span>{c.skills}
+                          </p>
+                        )}
+                        <p className="text-[11px] text-gray-400 mt-1">
+                          Inscrit le {new Date(c.registered_at).toLocaleDateString('fr-FR')}
+                          {c.university_confirmed_at && (
+                            <> — confirmé le {new Date(c.university_confirmed_at).toLocaleDateString('fr-FR')}</>
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => { setSelectedCandidate(c); setShowCandidateModal(true); }}
+                          className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition text-sm font-medium"
+                        >
+                          <FontAwesomeIcon icon={faEye} className="mr-1" /> Voir détails
+                        </button>
+                        {c.university_status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => confirmStudent(c.id)}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
+                            >
+                              <FontAwesomeIcon icon={faCheckCircle} className="mr-1" /> Confirmer
+                            </button>
+                            <button
+                              onClick={() => rejectStudent(c.id, c.name)}
+                              className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition text-sm font-medium"
+                            >
+                              <FontAwesomeIcon icon={faTimes} className="mr-1" /> Rejeter
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -1008,8 +1326,18 @@ export default function UniversityDashboard() {
                         <FontAwesomeIcon icon={faUniversity} className="text-white text-4xl" />
                       )}
                     </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800">{profile?.university_name}</h3>
+                    <div className="flex-1">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedProfile.university_name ?? profile?.university_name ?? ""}
+                          onChange={(e) => setEditedProfile({...editedProfile, university_name: e.target.value})}
+                          placeholder="Nom de l'université"
+                          className="text-xl font-bold text-gray-800 w-full border rounded-xl px-4 py-2 focus:border-green-500 focus:ring-2 focus:ring-green-200 mb-1"
+                        />
+                      ) : (
+                        <h3 className="text-xl font-bold text-gray-800">{profile?.university_name}</h3>
+                      )}
                       <p className="text-gray-500">{user?.email}</p>
                       <p className="text-sm text-green-600 mt-1">{profile?.type || 'Université'}</p>
                     </div>
@@ -1270,8 +1598,12 @@ export default function UniversityDashboard() {
             
             <div className="p-6 space-y-6">
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-                  <FontAwesomeIcon icon={faUserGraduate} className="text-green-600 text-3xl" />
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
+                  {selectedStudent.profile_picture_url ? (
+                    <img src={selectedStudent.profile_picture_url} alt={selectedStudent.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <FontAwesomeIcon icon={faUserGraduate} className="text-green-600 text-3xl" />
+                  )}
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-800">{selectedStudent.name}</h3>
@@ -1309,6 +1641,80 @@ export default function UniversityDashboard() {
                 </div>
               </div>
 
+              <div className="grid md:grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                <div>
+                  <p className="text-xs text-gray-500">Localisation</p>
+                  <p className="font-medium text-gray-800">{selectedStudent.location || 'Non renseignée'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Type de stage préféré</p>
+                  <p className="font-medium text-gray-800">{selectedStudent.internship_type || 'Non spécifié'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Mode de travail préféré</p>
+                  <p className="font-medium text-gray-800">{selectedStudent.preferred_work_type || 'Non spécifié'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Langues</p>
+                  <p className="font-medium text-gray-800">{selectedStudent.languages || 'Non renseignées'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Contact du tuteur/parent</p>
+                  <p className="font-medium text-gray-800">
+                    {selectedStudent.guardian_name || selectedStudent.guardian_contact
+                      ? `${selectedStudent.guardian_name || ''} ${selectedStudent.guardian_contact ? '— ' + selectedStudent.guardian_contact : ''}`
+                      : 'Non renseigné'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">CV</p>
+                  {selectedStudent.resume_url ? (
+                    <a href={selectedStudent.resume_url} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline">
+                      <FontAwesomeIcon icon={faFileUpload} className="mr-1" /> Voir le CV
+                    </a>
+                  ) : (
+                    <p className="font-medium text-gray-800">Non fourni</p>
+                  )}
+                </div>
+              </div>
+
+              {(selectedStudent.skills || selectedStudent.experience || selectedStudent.bio) && (
+                <div className="space-y-3">
+                  {selectedStudent.bio && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">À propos</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{selectedStudent.bio}</p>
+                    </div>
+                  )}
+                  {selectedStudent.skills && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Compétences</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{selectedStudent.skills}</p>
+                    </div>
+                  )}
+                  {selectedStudent.experience && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Expérience</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{selectedStudent.experience}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(selectedStudent.linkedin_url || selectedStudent.github_url || selectedStudent.portfolio_url) && (
+                <div className="flex gap-3 text-sm">
+                  {selectedStudent.linkedin_url && (
+                    <a href={selectedStudent.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">LinkedIn</a>
+                  )}
+                  {selectedStudent.github_url && (
+                    <a href={selectedStudent.github_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">GitHub</a>
+                  )}
+                  {selectedStudent.portfolio_url && (
+                    <a href={selectedStudent.portfolio_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Portfolio</a>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-blue-600">{selectedStudent.applications_count || 0}</p>
@@ -1340,7 +1746,7 @@ export default function UniversityDashboard() {
               {showTimeline && (
                 <div className="border-t pt-4">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3">Historique des candidatures</h4>
-                  {applications.filter(a => a.student_email === selectedStudent.email).length === 0 ? (
+                  {applicationsArr.filter(a => a.student_email === selectedStudent.email).length === 0 ? (
                     <p className="text-sm text-gray-400">Aucune candidature pour cet étudiant pour le moment.</p>
                   ) : (
                     <div className="space-y-3">
@@ -1367,6 +1773,169 @@ export default function UniversityDashboard() {
                         ))}
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Candidate Detail Modal */}
+      {showCandidateModal && selectedCandidate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-800">Profil du candidat</h2>
+              <button onClick={() => setShowCandidateModal(false)} className="text-gray-400 hover:text-gray-600">
+                <FontAwesomeIcon icon={faTimes} className="text-xl" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
+                  {selectedCandidate.profile_picture_url ? (
+                    <img src={selectedCandidate.profile_picture_url} alt={selectedCandidate.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <FontAwesomeIcon icon={faUser} className="text-green-600 text-3xl" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-xl font-bold text-gray-800">{selectedCandidate.name}</h3>
+                    {selectedCandidate.university_status === 'confirmed' && (
+                      <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">
+                        <FontAwesomeIcon icon={faCheckCircle} className="mr-1" /> Confirmé
+                      </span>
+                    )}
+                    {selectedCandidate.university_status === 'pending' && (
+                      <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">
+                        <FontAwesomeIcon icon={faClock} className="mr-1" /> En attente
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-500">{selectedCandidate.email}</p>
+                  {selectedCandidate.student_id && <p className="text-sm text-green-600">{selectedCandidate.student_id}</p>}
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                <div>
+                  <p className="text-xs text-gray-500">Département</p>
+                  <p className="font-medium text-gray-800">{selectedCandidate.department || 'Non spécifié'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Filière / Cours</p>
+                  <p className="font-medium text-gray-800">{selectedCandidate.course || 'Non spécifié'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Année d'étude</p>
+                  <p className="font-medium text-gray-800">{selectedCandidate.year || 'Non spécifiée'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Téléphone</p>
+                  <p className="font-medium text-gray-800">{selectedCandidate.phone || 'Non renseigné'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Date d'inscription</p>
+                  <p className="font-medium text-gray-800">{new Date(selectedCandidate.registered_at).toLocaleDateString('fr-FR')}</p>
+                </div>
+                {selectedCandidate.university_confirmed_at && (
+                  <div>
+                    <p className="text-xs text-gray-500">Confirmé le</p>
+                    <p className="font-medium text-gray-800">{new Date(selectedCandidate.university_confirmed_at).toLocaleDateString('fr-FR')}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                <div>
+                  <p className="text-xs text-gray-500">Localisation</p>
+                  <p className="font-medium text-gray-800">{selectedCandidate.location || 'Non renseignée'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Type de stage préféré</p>
+                  <p className="font-medium text-gray-800">{selectedCandidate.internship_type || 'Non spécifié'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Mode de travail préféré</p>
+                  <p className="font-medium text-gray-800">{selectedCandidate.preferred_work_type || 'Non spécifié'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Langues</p>
+                  <p className="font-medium text-gray-800">{selectedCandidate.languages || 'Non renseignées'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Contact du tuteur/parent</p>
+                  <p className="font-medium text-gray-800">
+                    {selectedCandidate.guardian_name || selectedCandidate.guardian_contact
+                      ? `${selectedCandidate.guardian_name || ''} ${selectedCandidate.guardian_contact ? '— ' + selectedCandidate.guardian_contact : ''}`
+                      : 'Non renseigné'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">CV</p>
+                  {selectedCandidate.resume_url ? (
+                    <a href={selectedCandidate.resume_url} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline">
+                      <FontAwesomeIcon icon={faFileUpload} className="mr-1" /> Voir le CV
+                    </a>
+                  ) : (
+                    <p className="font-medium text-gray-800">Non fourni</p>
+                  )}
+                </div>
+              </div>
+
+              {(selectedCandidate.skills || selectedCandidate.experience || selectedCandidate.bio) && (
+                <div className="space-y-3">
+                  {selectedCandidate.bio && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">À propos</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{selectedCandidate.bio}</p>
+                    </div>
+                  )}
+                  {selectedCandidate.skills && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Compétences</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{selectedCandidate.skills}</p>
+                    </div>
+                  )}
+                  {selectedCandidate.experience && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Expérience</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">{selectedCandidate.experience}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(selectedCandidate.linkedin_url || selectedCandidate.github_url || selectedCandidate.portfolio_url) && (
+                <div className="flex gap-3 text-sm">
+                  {selectedCandidate.linkedin_url && (
+                    <a href={selectedCandidate.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">LinkedIn</a>
+                  )}
+                  {selectedCandidate.github_url && (
+                    <a href={selectedCandidate.github_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">GitHub</a>
+                  )}
+                  {selectedCandidate.portfolio_url && (
+                    <a href={selectedCandidate.portfolio_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Portfolio</a>
+                  )}
+                </div>
+              )}
+
+              {selectedCandidate.university_status === 'pending' && (
+                <div className="flex gap-3 border-t pt-4">
+                  <button
+                    onClick={async () => { await confirmStudent(selectedCandidate.id); setShowCandidateModal(false); }}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-medium"
+                  >
+                    <FontAwesomeIcon icon={faCheckCircle} className="mr-2" /> Confirmer
+                  </button>
+                  <button
+                    onClick={async () => { await rejectStudent(selectedCandidate.id, selectedCandidate.name); setShowCandidateModal(false); }}
+                    className="flex-1 px-4 py-2 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 transition font-medium"
+                  >
+                    <FontAwesomeIcon icon={faTimes} className="mr-2" /> Rejeter
+                  </button>
                 </div>
               )}
             </div>

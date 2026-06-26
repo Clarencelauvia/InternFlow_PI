@@ -1,16 +1,19 @@
 <?php
 
 use App\Http\Controllers\regis\AuthController;
-use App\Http\Controllers\regis\internshipController;
+use App\Http\Controllers\regis\InternshipController;
 use App\Http\Controllers\regis\profileController;
 use App\Http\Controllers\regis\UniversityController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\regis\OrganisationController;
+use App\Http\Controllers\regis\MessageController;
 
 // Public route for authentication redirect
 Route::get('/login', function() {
     return response()->json(['message' => 'Unauthenticated'], 401);
 })->name('login');
+
+Route::get('/universities/verified', [UniversityController::class, 'verifiedUniversities']);
 
 // Public internships routes (NO AUTH REQUIRED)
 Route::get('/internships', [internshipController::class, 'index']);
@@ -34,6 +37,12 @@ Route::post('/upload/university-logo', [ProfileController::class, 'uploadUnivers
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
+
+       // ============ NOTIFICATION ROUTES ============
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    
     
     // Profile
     Route::get('/profile', [ProfileController::class, 'show']);
@@ -86,4 +95,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/university/internships/all', [UniversityController::class, 'getAllInternships']);
     Route::post('/university/profile/complete', [UniversityController::class, 'completeProfile']);
     Route::get('/university/placement/stats', [UniversityController::class, 'getPlacementStats']);
+
+// student management routes
+    Route::get   ('/university/students/by-status',         [UniversityController::class, 'studentsByStatus']);
+Route::patch ('/university/students/{id}/confirm',      [UniversityController::class, 'confirmStudent']);
+Route::patch ('/university/students/{id}/reject',       [UniversityController::class, 'rejectStudent']);
 });

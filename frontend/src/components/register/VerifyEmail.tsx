@@ -53,7 +53,14 @@ export default function VerifyEmail() {
           text: "Votre compte a été activé avec succès. Vous pouvez maintenant vous connecter.",
           confirmButtonColor: "#16a34a"
         }).then(() => {
-          navigate("/login");
+          // Send each role to its own login page (passed as ?role= in the URL).
+          const role = searchParams.get("role");
+          const loginRoute =
+            role === "university" ? "/login/universitylogin"
+            : role === "organization" ? "/login/organisation"
+            : role === "student" ? "/login/studentLogin"
+            : "/login";
+          navigate(loginRoute);
         });
       } else {
         Swal.fire({

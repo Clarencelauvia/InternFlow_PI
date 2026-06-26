@@ -45,7 +45,8 @@ export default function MyInternships() {
     { value: "all", label: "Tous", color: "gray" },
     { value: "open", label: "Actifs", color: "green" },
     { value: "closed", label: "Fermés", color: "red" },
-    { value: "in_progress", label: "En cours", color: "blue" }
+    { value: "in_progress", label: "En cours", color: "blue" },
+    { value: "archived", label: "Archivés", color: "gray" }
   ];
 
   const types = [
@@ -105,8 +106,10 @@ export default function MyInternships() {
       );
     }
 
-    // Status filter
-    if (statusFilter !== "all") {
+    // Status filter — "Tous" shows active internships (archived live in their own tab)
+    if (statusFilter === "all") {
+      filtered = filtered.filter(internship => internship.status !== "archived");
+    } else {
       filtered = filtered.filter(internship => internship.status === statusFilter);
     }
 
@@ -180,6 +183,13 @@ export default function MyInternships() {
           showConfirmButton: false
         });
         fetchInternships();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        Swal.fire({
+          icon: "error",
+          title: "Erreur",
+          text: data.error || "Impossible de mettre à jour le statut (vérifiez vos droits ou votre session)."
+        });
       }
     } catch (error) {
       Swal.fire({
@@ -198,6 +208,12 @@ export default function MyInternships() {
         return <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700"><FontAwesomeIcon icon={faTimesCircle} className="mr-1" /> Fermé</span>;
       case "in_progress":
         return <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700"><FontAwesomeIcon icon={faClockIcon} className="mr-1" /> En cours</span>;
+      case "closed_expired":
+        return <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700"><FontAwesomeIcon icon={faTimesCircle} className="mr-1" /> Expiré</span>;
+      case "archived":
+        return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archivé</span>;
+      case "draft":
+        return <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Brouillon</span>;
       default:
         return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{status}</span>;
     }

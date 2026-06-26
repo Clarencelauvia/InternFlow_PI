@@ -26,6 +26,7 @@ class AuthController extends Controller
             'contact' => 'required|string|max:20',
             'password' => 'required|string|min:6|confirmed',
             'university' => 'required|string|max:255',
+            'university_id' => 'nullable|integer|exists:university_profiles,id',
             'department' => 'required|string|max:255',
             'course' => 'required|string|max:255',
             'year' => 'required|string|max:255',
@@ -54,9 +55,14 @@ class AuthController extends Controller
                 'email_verified_at' => now(),
             ]);
 
+            $universityId = $request->university_id;
+            $universityStatus = $universityId ? 'pending' : null;
+
             StudentProfile::create([
                 'user_id' => $user->id,
                 'university' => $request->university,
+                'university_id' => $universityId,
+                'university_status' => $universityStatus,
                 'department' => $request->department,
                 'course' => $request->course,
                 'year' => $request->year,
@@ -64,6 +70,20 @@ class AuthController extends Controller
                 'guardian_name' => $request->guardianName,
                 'guardian_contact' => $request->guardianContact,
             ]);
+
+            // Notify the university if the student picked a verified one
+            if ($universityId) {
+                $universityProfile = \App\Models\UniversityProfile::find($universityId);
+                if ($universityProfile && $universityProfile->user_id) {
+                    \App\Models\UserNotification::create([
+                        'user_id' => $universityProfile->user_id,
+                        'type' => 'student_confirmation_request',
+                        'title' => 'Nouvelle demande de confirmation',
+                        'message' => "{$user->name} ({$request->course}, {$request->year}) s'est inscrit en tant qu'étudiant de votre université. Confirmez ou rejetez ce profil depuis votre tableau de bord.",
+                        'data' => ['student_user_id' => $user->id],
+                    ]);
+                }
+            }
 
 
             DB::commit();
@@ -330,7 +350,7 @@ public function verifyOrganisation(Request $request)
                 'password' => Hash::make($request->password),
                 'role' => 'university',
                 'contact' => $request->adminContact,
-                'status' => 'active',
+                'status' => 'pending',
                 'verification_code' => $verificationCode,
                 'email_verified_at' => null,
             ]);
@@ -364,7 +384,7 @@ public function verifyOrganisation(Request $request)
 
             // Send verification email
     try{
-                Mail::send('emails.verification', [
+                Mail::send('verification', [
                 'name' => $user->name,
                 'code' => $verificationCode,
                 'role' => 'university'
@@ -450,7 +470,7 @@ public function verifyOrganisation(Request $request)
         $user->verification_code = $newCode;
         $user->save();
 
-        Mail::send('emails.verification', [
+        Mail::send('verification', [
             'name' => $user->name,
             'code' => $newCode,
             'role' => $user->role
@@ -560,7 +580,7 @@ public function verifyOrganisation(Request $request)
             ['token' => $resetToken, 'created_at' => now()]
         );
 
-        Mail::send('emails.reset_password', [
+        Mail::send('reset_password', [
             'name' => $user->name,
             'token' => $resetToken,
             'email' => $user->email

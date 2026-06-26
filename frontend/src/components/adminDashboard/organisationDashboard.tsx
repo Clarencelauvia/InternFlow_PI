@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import NotificationBell from "./NotificationBell";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -100,14 +101,39 @@ interface Internship {
   created_at: Date;
 }
 
+interface StudentProfileInfo {
+  university?: string | null;
+  university_status?: 'none' | 'pending' | 'confirmed' | 'rejected' | null;
+  department?: string | null;
+  course?: string | null;
+  year?: string | null;
+  skills?: string | null;
+  languages?: string | null;
+  experience?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  preferred_work_type?: string | null;
+  internship_type?: string | null;
+  profile_picture_url?: string | null;
+  resume_url?: string | null;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  portfolio_url?: string | null;
+}
+
 interface Application {
   id: number;
   student_name: string;
   student_email: string;
+  student_phone?: string | null;
   status: string;
   cover_letter: string;
+  message?: string | null;
+  availability_confirmed?: boolean;
+  available_from?: string | null;
   created_at: string;
   internship_title: string;
+  student_profile?: StudentProfileInfo | null;
 }
 
 // ============ Stats Card Component ============
@@ -198,7 +224,7 @@ const InternshipCard = ({ internship, onViewApplications, onViewDetails }: any) 
 );
 
 // ============ ApplicationCard Component ============
-const ApplicationCard = ({ application, onUpdateStatus, onViewLetter }: any) => (
+const ApplicationCard = ({ application, onUpdateStatus, onViewDetails }: any) => (
   <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all p-5">
     <div className="flex justify-between items-start mb-3">
       <div>
@@ -207,7 +233,14 @@ const ApplicationCard = ({ application, onUpdateStatus, onViewLetter }: any) => 
             <FontAwesomeIcon icon={faUser} className="text-blue-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-800">{application.student_name}</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-gray-800">{application.student_name}</h3>
+              {application.student_profile?.university_status === 'confirmed' && (
+                <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full" title="Profil confirmé par l'université">
+                  <FontAwesomeIcon icon={faCheckCircle} /> Vérifié
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-500">{application.student_email}</p>
           </div>
         </div>
@@ -229,14 +262,77 @@ const ApplicationCard = ({ application, onUpdateStatus, onViewLetter }: any) => 
       <FontAwesomeIcon icon={faCalendarAlt} />
       <span>Soumise le: {new Date(application.created_at).toLocaleDateString()}</span>
     </div>
-    
+
+    {/* Student profile snapshot */}
+    {application.student_profile && (
+      <div className="bg-gray-50 rounded-xl p-3 mb-3 text-sm space-y-1">
+        {(application.student_profile.university || application.student_profile.department) && (
+          <p className="text-gray-700">
+            <FontAwesomeIcon icon={faGraduationCap} className="text-gray-400 mr-2" />
+            {[application.student_profile.university, application.student_profile.department].filter(Boolean).join(" — ")}
+          </p>
+        )}
+        {(application.student_profile.course || application.student_profile.year) && (
+          <p className="text-gray-600 text-xs ml-6">
+            {[application.student_profile.course, application.student_profile.year].filter(Boolean).join(", ")}
+          </p>
+        )}
+        {application.student_profile.skills && (
+          <p className="text-gray-600 text-xs">
+            <span className="text-gray-400">Compétences : </span>{application.student_profile.skills}
+          </p>
+        )}
+        {(application.student_profile.linkedin_url || application.student_profile.github_url || application.student_profile.portfolio_url) && (
+          <div className="flex flex-wrap gap-3 pt-1">
+            {application.student_profile.linkedin_url && (
+              <a href={application.student_profile.linkedin_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">LinkedIn</a>
+            )}
+            {application.student_profile.github_url && (
+              <a href={application.student_profile.github_url} target="_blank" rel="noreferrer" className="text-gray-700 hover:underline text-xs">GitHub</a>
+            )}
+            {application.student_profile.portfolio_url && (
+              <a href={application.student_profile.portfolio_url} target="_blank" rel="noreferrer" className="text-green-700 hover:underline text-xs">Portfolio</a>
+            )}
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* Availability */}
+    {application.availability_confirmed && (
+      <div className="flex items-center gap-2 text-xs text-green-700 mb-2">
+        <FontAwesomeIcon icon={faCheckCircle} />
+        <span>
+          Disponibilité confirmée
+          {application.available_from ? ` (à partir du ${new Date(application.available_from).toLocaleDateString()})` : ""}
+        </span>
+      </div>
+    )}
+
+    {/* Optional message */}
+    {application.message && (
+      <div className="text-xs text-gray-600 mb-3 bg-amber-50 border border-amber-100 rounded-lg p-2">
+        <span className="text-gray-400">Message : </span>{application.message}
+      </div>
+    )}
+
     <div className="flex gap-2 pt-3 border-t">
       <button 
-        onClick={() => onViewLetter(application.cover_letter)}
+        onClick={() => onViewDetails(application)}
         className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm"
       >
-        <FontAwesomeIcon icon={faEye} className="mr-1" /> Lettre
+        <FontAwesomeIcon icon={faEye} className="mr-1" /> Détails
       </button>
+      {application.student_profile?.resume_url && (
+        <a
+          href={application.student_profile.resume_url}
+          target="_blank"
+          rel="noreferrer"
+          className="flex-1 text-center px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition text-sm"
+        >
+          <FontAwesomeIcon icon={faFileAlt} className="mr-1" /> CV
+        </a>
+      )}
       {application.status === 'pending' && (
         <>
           <button 
@@ -266,6 +362,8 @@ export default function OrganizationDashboard() {
   const [profile, setProfile] = useState<OrganizationProfile | null>(null);
   const [internships, setInternships] = useState<Internship[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<Application | null>(null);
+  const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState<Partial<OrganizationProfile>>({});
   const [showPostModal, setShowPostModal] = useState(false);
@@ -560,13 +658,9 @@ const handlePostInternship = async () => {
     }
   };
 
-  const viewCoverLetter = (coverLetter: string) => {
-    Swal.fire({
-      title: "Lettre de motivation",
-      text: coverLetter,
-      icon: "info",
-      confirmButtonColor: "#2563eb"
-    });
+  const viewCandidate = (application: Application) => {
+    setSelectedCandidate(application);
+    setShowCandidateModal(true);
   };
 
   const filteredApplications = applications.filter(app =>
@@ -672,21 +766,24 @@ const handlePostInternship = async () => {
               </h1>
               <p className="text-gray-500 mt-1">Gérez vos offres de stage et trouvez les meilleurs talents</p>
             </div>
-            <div className="bg-white px-5 py-3 rounded-xl shadow-sm flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
-                {profile?.logo_path ? (
-                  <img 
-                    src={`http://localhost:8000/storage/${profile.logo_path}`} 
-                    alt="Logo" 
-                    className="w-full h-full object-cover rounded-full" 
-                  />
-                ) : (
-                  <FontAwesomeIcon icon={faBuilding} className="text-green-600 text-lg" />
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-700">{profile?.organisation_name || 'Entreprise'}</p>
-                <p className="text-xs text-gray-400">{user?.email}</p>
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <div className="bg-white px-5 py-3 rounded-xl shadow-sm flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
+                  {profile?.logo_path ? (
+                    <img 
+                      src={`http://localhost:8000/storage/${profile.logo_path}`} 
+                      alt="Logo" 
+                      className="w-full h-full object-cover rounded-full" 
+                    />
+                  ) : (
+                    <FontAwesomeIcon icon={faBuilding} className="text-green-600 text-lg" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">{profile?.organisation_name || 'Entreprise'}</p>
+                  <p className="text-xs text-gray-400">{user?.email}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -940,7 +1037,7 @@ const handlePostInternship = async () => {
                       key={application.id}
                       application={application}
                       onUpdateStatus={updateApplicationStatus}
-                      onViewLetter={viewCoverLetter}
+                      onViewDetails={viewCandidate}
                     />
                   ))}
                 </div>
@@ -1551,6 +1648,128 @@ const handlePostInternship = async () => {
     </div>
   </div>
 )}
+
+    {/* Candidate Detail Modal (8.1) */}
+    {showCandidateModal && selectedCandidate && (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCandidateModal(false)}>
+        <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          {(() => {
+            const c = selectedCandidate;
+            const sp = c.student_profile;
+            const fmt = (d?: string | null) => d ? new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : "—";
+            return (
+              <>
+                <div className="bg-linear-to-r from-green-600 to-emerald-600 p-6 text-white relative">
+                  <button onClick={() => setShowCandidateModal(false)} className="absolute top-4 right-4 text-white/80 hover:text-white">
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-full bg-white/20 overflow-hidden flex items-center justify-center shrink-0">
+                      {sp?.profile_picture_url ? (
+                        <img src={sp.profile_picture_url} alt={c.student_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <FontAwesomeIcon icon={faUser} className="text-3xl text-white" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-2xl font-bold">{c.student_name}</h2>
+                        {sp?.university_status === 'confirmed' && (
+                          <span className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full" title="Profil confirmé par l'université">
+                            <FontAwesomeIcon icon={faCheckCircle} /> Vérifié par l'université
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-green-50 text-sm">{c.internship_title}</p>
+                      <p className="text-green-100 text-xs mt-1">Candidature soumise le {fmt(c.created_at)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  <section>
+                    <h3 className="text-sm font-bold text-gray-400 uppercase mb-2">Informations personnelles</h3>
+                    <div className="grid sm:grid-cols-2 gap-2 text-sm">
+                      <p><FontAwesomeIcon icon={faEnvelope} className="text-green-600 mr-2" />{c.student_email}</p>
+                      {c.student_phone && <p><FontAwesomeIcon icon={faPhone} className="text-green-600 mr-2" />{c.student_phone}</p>}
+                      {sp?.location && <p><FontAwesomeIcon icon={faMapMarkerAlt} className="text-green-600 mr-2" />{sp.location}</p>}
+                    </div>
+                  </section>
+
+                  {(sp?.university || sp?.department || sp?.course || sp?.year) && (
+                    <section>
+                      <h3 className="text-sm font-bold text-gray-400 uppercase mb-2">Informations académiques</h3>
+                      <div className="grid sm:grid-cols-2 gap-2 text-sm">
+                        {sp?.university && <p><span className="text-gray-400">Établissement : </span>{sp.university}</p>}
+                        {sp?.department && <p><span className="text-gray-400">Département : </span>{sp.department}</p>}
+                        {sp?.course && <p><span className="text-gray-400">Filière : </span>{sp.course}</p>}
+                        {sp?.year && <p><span className="text-gray-400">Année : </span>{sp.year}</p>}
+                      </div>
+                    </section>
+                  )}
+
+                  {(sp?.skills || sp?.languages || sp?.experience || sp?.bio || sp?.preferred_work_type || sp?.linkedin_url || sp?.github_url || sp?.portfolio_url) && (
+                    <section>
+                      <h3 className="text-sm font-bold text-gray-400 uppercase mb-2">Informations professionnelles</h3>
+                      <div className="space-y-2 text-sm">
+                        {sp?.bio && <p className="text-gray-600">{sp.bio}</p>}
+                        {sp?.skills && <p><span className="text-gray-400">Compétences : </span>{sp.skills}</p>}
+                        {sp?.languages && <p><span className="text-gray-400">Langues : </span>{sp.languages}</p>}
+                        {sp?.experience && <p><span className="text-gray-400">Expérience : </span>{sp.experience}</p>}
+                        {sp?.preferred_work_type && <p><span className="text-gray-400">Mode de travail : </span>{sp.preferred_work_type}</p>}
+                        <div className="flex flex-wrap gap-3 pt-1">
+                          {sp?.linkedin_url && <a href={sp.linkedin_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">LinkedIn</a>}
+                          {sp?.github_url && <a href={sp.github_url} target="_blank" rel="noreferrer" className="text-gray-700 hover:underline">GitHub</a>}
+                          {sp?.portfolio_url && <a href={sp.portfolio_url} target="_blank" rel="noreferrer" className="text-green-700 hover:underline">Portfolio</a>}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  <section>
+                    <h3 className="text-sm font-bold text-gray-400 uppercase mb-2">Candidature</h3>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <p className="text-gray-400 mb-1">Lettre de motivation</p>
+                        <p className="text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-3">{c.cover_letter}</p>
+                      </div>
+                      {c.message && (
+                        <div>
+                          <p className="text-gray-400 mb-1">Message</p>
+                          <p className="text-gray-700 whitespace-pre-wrap bg-amber-50 rounded-lg p-3">{c.message}</p>
+                        </div>
+                      )}
+                      {c.availability_confirmed && (
+                        <p className="text-green-700"><FontAwesomeIcon icon={faCheckCircle} className="mr-1" /> Disponibilité confirmée{c.available_from ? ` (à partir du ${fmt(c.available_from)})` : ""}</p>
+                      )}
+                      {sp?.resume_url && (
+                        <a href={sp.resume_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition">
+                          <FontAwesomeIcon icon={faFileAlt} /> Voir / télécharger le CV
+                        </a>
+                      )}
+                    </div>
+                  </section>
+                </div>
+
+                <div className="flex gap-3 p-6 border-t sticky bottom-0 bg-white">
+                  {c.status === 'pending' && (
+                    <>
+                      <button onClick={() => { updateApplicationStatus(c.id, 'accepted'); setShowCandidateModal(false); }} className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-semibold">
+                        <FontAwesomeIcon icon={faCheckCircle} className="mr-2" /> Accepter
+                      </button>
+                      <button onClick={() => { updateApplicationStatus(c.id, 'rejected'); setShowCandidateModal(false); }} className="flex-1 px-4 py-3 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 transition font-semibold">
+                        <FontAwesomeIcon icon={faTimes} className="mr-2" /> Refuser
+                      </button>
+                    </>
+                  )}
+                  <button onClick={() => setShowCandidateModal(false)} className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition">Fermer</button>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </div>
+    )}
     </div>
   );
 }
